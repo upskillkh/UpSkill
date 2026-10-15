@@ -1,5 +1,6 @@
 Khmer24 Growth System — Cloudflare Project
 Economic Intelligence dashboard + My Skill Development module
+Daily skill lesson delivered to Telegram at 06:00 Asia/Phnom_Penh (23:00 UTC)
 
 .dev.vars.example
 .gitignore
@@ -8,16 +9,20 @@ README.md
 migrations/0001_init.sql
 migrations/0002_skills.sql
 migrations/0003_seed_skills.sql
+migrations/0004_skill_delivery.sql
 package.json
 package-lock.json
+PROJECT_CONTENTS.txt
 public/index.html
 public/skills.html
 src/auth.js
 src/skills-data.js
+src/skills-daily.js
 src/skills-telegram.js
 src/skills.js
 src/worker.js
 tests/api.test.mjs
 tests/curriculum.test.mjs
 telegram-check.cjs
+check-crons.cjs
 wrangler.toml
