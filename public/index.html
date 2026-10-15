@@ -96,7 +96,7 @@ function updateStats(stats){
 async function loadNews(showToast=false){
  const btn=$("refreshBtn");btn.disabled=true;btn.textContent="↻ Loading…";
  try{
-  const response=await fetch("/api/news?limit=100",{headers:{"accept":"application/json"}});
+   const response=await fetch("/api/news?limit=500",{headers:{"accept":"application/json"}});
   if(!response.ok)throw new Error("API "+response.status);
   const data=await response.json();state.stories=data.stories||[];state.live=true;$("systemStatus").textContent="Cloud connected";
   if(!state.stories.length){state.stories=demo;state.live=false;$("systemStatus").textContent="Awaiting first collection";$("newsTitle").textContent="Dashboard preview · sample stories";if(showToast)toast("Database is connected. Run the first news collection to load live stories.");}

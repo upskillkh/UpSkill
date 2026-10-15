@@ -183,7 +183,17 @@ The schedule is configured in `wrangler.toml`. Cron triggers are approximate sch
 
 ## RSS feeds and limitations
 
-The collector attempts feeds from Khmer Times, CNA, CNBC (World and Finance), Nikkei Asia, ASEAN Briefing, and The Thaiger. Feed URLs and access policies change over time; a failed feed is skipped and the others continue. Some publishers block requests by source IP rather than by user agent, which code cannot work around: **Khmer Times currently returns HTTP 403 to Cloudflare Workers**, so Cambodia-specific coverage is limited until it is reachable. Always open the original source and verify significant claims. Priority labels are heuristic triage, not a financial forecast or factual rating of the publisher.
+The collector uses 21 feeds across ASEAN/regional, markets/finance, and general world sources, including ASEAN.org, CNA, Nikkei Asia, SCMP, Straits Times, VnExpress, CNBC, BBC Asia, UN Economic Development, and others. Each run pulls up to 15 items per feed and writes them to D1 in batches.
+
+**Feed reachability must be tested from the Worker, not from your own machine.** Cloudflare Workers egress from different IP addresses than your browser, and publishers filter per IP, so a feed can work locally and still return 403 from the Worker. A temporary `/api/probe` endpoint was used to confirm which feeds actually work from the deployed runtime; all 20 working feeds were verified that way rather than assumed.
+
+**Cambodia coverage is currently zero, and the collector cannot fix it.** Every Cambodia-specific route tested — Khmer Times, Phnom Penh Post, and Google News topic search — returns 403 or 503 specifically for Cloudflare Workers egress. Khmer Times is deliberately kept in the feed list so coverage resumes automatically if the publisher allows Workers traffic again. Cambodia stories do appear occasionally via regional feeds that carry them.
+
+Some publishers block automated traffic entirely. Always open the original source and verify significant claims. Priority labels are heuristic triage, not a financial forecast or factual rating of the publisher.
+
+### Classification accuracy
+
+Region, category, and high-impact matching use alphanumeric word boundaries rather than substring matching. Substring matching produced false positives that corrupted the data: `"riel"` matched inside `"Espriella"` and tagged an unrelated Colombia story as Cambodia, and `"war"` matched inside `"award"`, `"toward"`, and `"warms"`, inflating the RED count roughly threefold (26 false REDs versus 9 genuine ones).
 
 This starter does not include paid news APIs, paid AI analysis, user login, or a public multi-user admin panel. These can be added later. Do not add a private bot token to frontend code.
 

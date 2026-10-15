@@ -1,12 +1,35 @@
 const FEEDS = [
-  {name:"Khmer Times", url:"https://www.khmertimeskh.com/feed/"},
-  {name:"CNA Business", url:"https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml"},
+  // ASEAN / regional
+  {name:"ASEAN.org", url:"https://asean.org/feed/"},
+  {name:"ASEAN Briefing", url:"https://www.aseanbrief.com/feed/"},
+  {name:"The Thaiger", url:"https://thethaiger.com/feed/"},
+  {name:"VnExpress World", url:"https://e.vnexpress.net/rss/world.rss"},
+  {name:"CNA", url:"https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml"},
+  {name:"Straits Times", url:"https://www.straitstimes.com/news/world/rss.xml"},
+  {name:"SCMP Economy", url:"https://www.scmp.com/rss/4/feed"},
+  {name:"SCMP Business", url:"https://www.scmp.com/rss/92/feed"},
+  // Markets / finance
   {name:"CNBC World", url:"https://www.cnbc.com/id/100727362/device/rss/rss.html"},
   {name:"CNBC Finance", url:"https://www.cnbc.com/id/10000664/device/rss/rss.html"},
+  {name:"CNBC Economy", url:"https://www.cnbc.com/id/20910258/device/rss/rss.html"},
+  {name:"CNBC Asia", url:"https://www.cnbc.com/id/19832390/device/rss/rss.html"},
   {name:"Nikkei Asia", url:"https://asia.nikkei.com/rss/feed/nar"},
-  {name:"ASEAN Briefing", url:"https://www.aseanbrief.com/feed/"},
-  {name:"The Thaiger", url:"https://thethaiger.com/feed/"}
+  {name:"MarketWatch", url:"https://feeds.content.dowjones.io/public/rss/mw_topstories"},
+  {name:"Investing.com", url:"https://www.investing.com/rss/news.rss"},
+  // General world
+  {name:"BBC Asia", url:"https://www.bbc.com/news/world/asia/rss.xml"},
+  {name:"Al Jazeera", url:"https://www.aljazeera.com/xml/rss/all.xml"},
+  {name:"DW World", url:"https://rss.dw.com/rdf/rss-en-world"},
+  {name:"UN Economic Development", url:"https://news.un.org/feed/subscribe/en/news/topic/economic-development/feed/rss.xml"},
+  {name:"Economic Times", url:"https://economictimes.indiatimes.com/rssfeedstopstories.cms"},
+  // Cambodia: every Cambodia-specific feed tested (Khmer Times, Phnom Penh Post,
+  // Google News topic search) returns 403/503 from Cloudflare Workers egress,
+  // which the collector cannot bypass. Kept so coverage resumes automatically
+  // if the publisher allows Workers traffic again.
+  {name:"Khmer Times", url:"https://www.khmertimeskh.com/feed/"}
 ];
+
+const PER_FEED = 15;
 
 // Some publishers reject obvious bot agents. Retry once with a browser agent
 // before treating a feed as failed, since several also gate on egress IP.
@@ -68,13 +91,25 @@ function parseFeed(xml, feedName) {
     return {title,url:url.trim(),summary:summary.slice(0,1600),published,source:feedName};
   }).filter(x=>x.title && /^https?:\/\//i.test(x.url));
 }
+// Substring matching produced false hits: "riel" matched inside "Espriella",
+// tagging an unrelated Colombia story as Cambodia. Require alphanumeric boundaries.
+const termCache=new Map();
+function hasTerm(text, term) {
+  let re=termCache.get(term);
+  if(!re) {
+    const esc=term.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").trim();
+    re=new RegExp("(?<![a-z0-9])"+esc+"(?![a-z0-9])","i");
+    termCache.set(term,re);
+  }
+  return re.test(text);
+}
 function classify(title, summary) {
   const x=(title+" "+summary).toLowerCase();
   let region="Global";
-  for (const [r,terms] of Object.entries(REGION_TERMS)) if (terms.some(t=>x.includes(t))) {region=r;break;}
+  for (const [r,terms] of Object.entries(REGION_TERMS)) if (terms.some(t=>hasTerm(x,t))) {region=r;break;}
   let category="Other";
-  for (const [c,terms] of Object.entries(CATEGORY_TERMS)) if (terms.some(t=>x.includes(t))) {category=c;break;}
-  const urgent=HIGH_IMPACT.some(t=>x.includes(t));
+  for (const [c,terms] of Object.entries(CATEGORY_TERMS)) if (terms.some(t=>hasTerm(x,t))) {category=c;break;}
+  const urgent=HIGH_IMPACT.some(t=>hasTerm(x,t));
   const score=1+(urgent?3:0)+(["Cambodia","ASEAN","China","US"].includes(region)?1:0)+(["Interest Rates","Trade","Banking","Commodities","Regulation"].includes(category)?1:0);
   const priority=score>=5?"RED":score>=4?"ORANGE":score>=3?"YELLOW":"GREEN";
   return {region,category,score,priority};
@@ -114,26 +149,35 @@ async function fetchFeed(url) {
 }
 async function collect(env) {
   const now=new Date().toISOString();
-  let added=0, failed=[];
+  const failed=[];
+  const rows=[];
   for (const feed of FEEDS) {
     try {
       const xml=await fetchFeed(feed.url);
-      const stories=parseFeed(xml,feed.name).slice(0,18);
+      const stories=parseFeed(xml,feed.name).slice(0,PER_FEED);
       if(!stories.length) { failed.push(feed.name+": no parsable items"); continue; }
       for(const s of stories) {
         const cls=classify(s.title,s.summary);
-        const result=await env.DB.prepare(`INSERT OR IGNORE INTO stories
-          (url,title,summary,source,published,collected,region,category,priority,score)
-          VALUES(?,?,?,?,?,?,?,?,?,?)`)
-          .bind(s.url,s.title,s.summary,s.source,s.published,now,cls.region,cls.category,cls.priority,cls.score).run();
-        if(result.meta?.changes) added++;
+        rows.push([s.url,s.title,s.summary,s.source,s.published,now,cls.region,cls.category,cls.priority,cls.score]);
       }
     } catch(e) { failed.push(feed.name+": "+String(e.message||e)); }
   }
-  return {added,failed,checked:FEEDS.length,at:now};
+  // Insert in chunks so a large feed set does not serialise hundreds of round trips.
+  let added=0;
+  const INSERT=`INSERT OR IGNORE INTO stories
+    (url,title,summary,source,published,collected,region,category,priority,score)
+    VALUES(?,?,?,?,?,?,?,?,?,?)`;
+  for(let i=0;i<rows.length;i+=50) {
+    const chunk=rows.slice(i,i+50).map(r=>env.DB.prepare(INSERT).bind(...r));
+    try {
+      const results=await env.DB.batch(chunk);
+      for(const r of results) if(r?.meta?.changes) added++;
+    } catch(e) { failed.push("database write failed: "+String(e.message||e)); break; }
+  }
+  return {added,failed,checked:FEEDS.length,total:rows.length,at:now};
 }
 async function getStories(env, params={}) {
-  const limit=Math.min(100,Math.max(1,Number(params.limit||50)));
+  const limit=Math.min(500,Math.max(1,Number(params.limit||50)));
   const region=params.region||"";
   const q=(params.q||"").trim().slice(0,120);
   const priority=params.priority||"";
