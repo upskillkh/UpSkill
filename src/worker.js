@@ -1,3 +1,13 @@
+// Personal Skill Development module
+import {
+  seedCurriculum, getToday, getLesson, getPlan, saveSession, saveQuiz,
+  saveJournal, getJournalEntry, listJournal, saveAssignment, listAssignments,
+  getProgress, getAssessment, setPreference, remindersEnabled, ictMinutes,
+  clean, toDay, PROGRAM_DAYS,
+} from "./skills.js";
+import { handleSkillCommand, handleQuizAnswer, buildReminder, SKILL_HELP } from "./skills-telegram.js";
+import { authorize, createToken, sessionCookie, clearCookie } from "./auth.js";
+
 const FEEDS = [
   // ASEAN / regional
   {name:"ASEAN.org", url:"https://asean.org/feed/"},
@@ -217,6 +227,165 @@ async function sendScheduledReport(env) {
   await collect(env);
   await telegram(env,env.ALLOWED_CHAT_ID,await reportText(env));
 }
+
+// Daily learning reminder, fired at 07:30 Cambodia time (00:30 UTC).
+async function sendLearningReminder(env, siteUrl) {
+  if(!env.TELEGRAM_BOT_TOKEN || !env.ALLOWED_CHAT_ID) return;
+  const text=await buildReminder(env, siteUrl);
+  if(!text) return;
+  await telegram(env,env.ALLOWED_CHAT_ID,text);
+}
+
+// ---------------------------------------------------------------------------
+// Skill Development API. All personal data routes require authorization.
+// ---------------------------------------------------------------------------
+async function handleSkills(request, env, url) {
+  const route = url.pathname.replace(/^\/api\/skills/, "") || "/";
+
+  // Unauthenticated entry points.
+  if (route === "/login" && request.method === "POST") {
+    if (!env.ADMIN_SECRET) return json({ error: "ADMIN_SECRET is not configured" }, 503);
+    const body = await readBody(request);
+    const supplied = String(body.secret || "");
+    // Compare via the same path as the header check to keep timing behaviour
+    // consistent, then issue a signed cookie that does not contain the secret.
+    const ok = await authorize(
+      new Request(request.url, { headers: { authorization: "Bearer " + supplied } }),
+      env
+    );
+    if (!ok.ok) return json({ error: "Incorrect secret" }, 401);
+    const secure = new URL(request.url).protocol === "https:";
+    return new Response(JSON.stringify({ ok: true, expiresIn: 43200 }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-store",
+        "set-cookie": sessionCookie(await createToken(env.ADMIN_SECRET), secure),
+      },
+    });
+  }
+
+  if (route === "/logout" && request.method === "POST") {
+    const secure = new URL(request.url).protocol === "https:";
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "content-type": "application/json", "set-cookie": clearCookie() },
+    });
+  }
+
+  // authorize() resolves to a plain object, not a Response, so it must be
+  // awaited and checked on .ok. Treating it as a Response silently allowed
+  // every unauthenticated request through.
+  if (!env.ADMIN_SECRET) {
+    return json({ error: "Skill Development is disabled until ADMIN_SECRET is set" }, 503);
+  }
+  const auth = await authorize(request, env);
+  if (!auth.ok) {
+    return json({ error: "Unauthorized", hint: "Sign in at /skills.html with your ADMIN_SECRET" }, 401);
+  }
+
+  if (route === "/session" && request.method === "GET") {
+    return json({ ok: true, authenticated: true, via: auth.via });
+  }
+
+  try {
+    await ensureSeeded(env);
+  } catch (e) {
+    return json({ error: "Curriculum could not be initialised", detail: String(e.message || e) }, 500);
+  }
+
+  try {
+    if (route === "/today" && request.method === "GET") {
+      return json(await getToday(env));
+    }
+
+    if (route === "/lesson" && request.method === "GET") {
+      const day = toDay(url.searchParams.get("day"));
+      if (!day) return json({ error: "day must be an integer between 1 and " + PROGRAM_DAYS }, 400);
+      const lesson = await getLesson(env, day);
+      if (!lesson) return json({ error: "Lesson not found" }, 404);
+      return json({ lesson });
+    }
+
+    if (route === "/plan" && request.method === "GET") {
+      const plan = await getPlan(env);
+      return json({ plan, total: plan.length, programDays: PROGRAM_DAYS });
+    }
+
+    if (route === "/assessment" && request.method === "GET") {
+      return json({ assessment: getAssessment() });
+    }
+
+    if (route === "/progress" && request.method === "GET") {
+      return json(await getProgress(env));
+    }
+
+    if (route === "/progress" && request.method === "POST") {
+      const body = await readBody(request);
+      const result = await saveSession(env, body);
+      return json(result);
+    }
+
+    if (route === "/quiz" && request.method === "POST") {
+      const body = await readBody(request);
+      const day = toDay(body.day);
+      if (!day) return json({ error: "day must be between 1 and " + PROGRAM_DAYS }, 400);
+      return json(await saveQuiz(env, body));
+    }
+
+    if (route === "/journal") {
+      if (request.method === "GET") {
+        const date = url.searchParams.get("date");
+        if (date) {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "date must be YYYY-MM-DD" }, 400);
+          const entry = await getJournalEntry(env, date);
+          return json({ entry });
+        }
+        return json({ entries: await listJournal(env, url.searchParams.get("limit")) });
+      }
+      if (request.method === "POST") {
+        const body = await readBody(request);
+        return json(await saveJournal(env, body));
+      }
+    }
+
+    if (route === "/assignments") {
+      if (request.method === "GET") {
+        return json({ assignments: await listAssignments(env) });
+      }
+      if (request.method === "POST") {
+        const body = await readBody(request);
+        return json(await saveAssignment(env, body));
+      }
+    }
+
+    if (route === "/assignments/templates" && request.method === "GET") {
+      return json({ templates: (await import("./skills-data.js")).ASSIGNMENTS });
+    }
+
+    if (route === "/preferences") {
+      if (request.method === "GET") {
+        return json({ remindersEnabled: await remindersEnabled(env) });
+      }
+      if (request.method === "POST") {
+        const body = await readBody(request);
+        const enabled = body.remindersEnabled === true || body.remindersEnabled === 1 || body.remindersEnabled === "1";
+        await setPreference(env, "reminders_enabled", enabled ? "1" : "0");
+        return json({ ok: true, remindersEnabled: enabled });
+      }
+    }
+
+    if (url.pathname === "/api/skills/assessment" && request.method === "GET") {
+      return json({ assessment: getAssessment() });
+    }
+  } catch (e) {
+    const message = String(e.message || e);
+    const bad = /must be|not found|Invalid/i.test(message);
+    return json({ error: bad ? message : "Request could not be completed" }, bad ? 400 : 500);
+  }
+
+  return json({ error: "Not found" }, 404);
+}
 // Telegram delivers to chats the bot cannot reach (wrong id, blocked, kicked).
 // A failed reply must not surface as a non-200, or Telegram retries in a loop.
 async function tryTelegram(env, chatId, text) {
@@ -226,6 +395,28 @@ async function tryTelegram(env, chatId, text) {
     console.error("telegram reply failed for chat", chatId, String(e.message || e));
   }
 }
+// ---------------------------------------------------------------------------
+// Skill Development helpers
+// ---------------------------------------------------------------------------
+let seedTask = null;
+// Skills are seeded once per isolate and only when the curriculum tables are
+// actually empty. The gate checks skill_lessons rather than skills, because
+// migration 0003 already seeds the skills rows while lessons come from JS.
+async function ensureSeeded(env) {
+  const { results } = await env.DB.prepare("SELECT COUNT(*) AS c FROM skill_lessons").all();
+  if ((results?.[0]?.c || 0) > 0) return false;
+  if (!seedTask) seedTask = seedCurriculum(env).catch((e) => { seedTask = null; throw e; });
+  await seedTask;
+  return true;
+}
+async function readBody(request) {
+  try {
+    return await request.json();
+  } catch {
+    return {};
+  }
+}
+
 async function handleTelegram(request, env) {
   if(!env.TELEGRAM_BOT_TOKEN) return json({error:"Telegram bot is not configured"},503);
   if(env.TELEGRAM_WEBHOOK_SECRET) {
@@ -244,10 +435,12 @@ async function handleTelegram(request, env) {
     await tryTelegram(env,chatId,"This bot is private. Ask the owner to authorize your chat ID.");
     return json({ok:true});
   }
-  const command=message.text.trim().split(/\s+/)[0].split("@")[0].toLowerCase();
+  const parts=message.text.trim().split(/\s+/);
+  const command=parts[0].split("@")[0].toLowerCase();
+  const arg=parts.slice(1).join(" ");
   let reply="";
   if(command==="/start" || command==="/help") {
-    reply="👋 Welcome to Economic Intelligence.\n\n/today — latest business intelligence\n/cambodia — Cambodia-focused stories\n/asean — ASEAN stories\n/global — global stories\n/opportunities — business opportunity prompts\n/refresh — collect new RSS stories\n/help — show commands";
+    reply="👋 Welcome to Economic Intelligence.\n\nNEWS\n/today — latest business intelligence\n/cambodia — Cambodia-focused stories\n/asean — ASEAN stories\n/global — global stories\n/opportunities — business opportunity prompts\n/refresh — collect new RSS stories\n\n"+SKILL_HELP;
   } else if(command==="/today") reply=await reportText(env);
   else if(command==="/cambodia") reply=await reportText(env,"Cambodia");
   else if(command==="/asean") reply=await reportText(env,"ASEAN");
@@ -258,7 +451,21 @@ async function handleTelegram(request, env) {
   } else if(command==="/refresh") {
     const r=await collect(env);
     reply=`🔄 Collection finished.\nNew stories: ${r.added}\nFeeds checked: ${r.checked}\nFailed feeds: ${r.failed.length}\nUse /today to view the latest report.`;
-  } else reply="I don't recognize that command. Send /help to see available commands.";
+  } else {
+    // Skill Development commands. ensureSeeded is best-effort: a curriculum
+    // problem must not break the existing news commands.
+    try {
+      await ensureSeeded(env);
+      reply = await handleSkillCommand(env, command, arg);
+      if (reply === null && /^[1-4]$/.test(message.text.trim())) {
+        reply = await handleQuizAnswer(env, message.text.trim());
+      }
+    } catch (e) {
+      console.error("skill command failed", command, String(e.message || e));
+      reply = "⚠️ The skill module hit a problem. Try again in a moment.";
+    }
+    if (reply === null) reply="I don't recognize that command. Send /help to see available commands.";
+  }
   await tryTelegram(env,chatId,reply);
   return json({ok:true});
 }
@@ -290,6 +497,7 @@ export default {
         await telegram(env,env.ALLOWED_CHAT_ID,"✅ Economic Intelligence website connected to Telegram.");
         return json({ok:true});
       }
+      if(url.pathname.startsWith("/api/skills")) return await handleSkills(request, env, url);
       if(url.pathname.startsWith("/api/")) return json({error:"Not found"},404);
       return env.ASSETS.fetch(request);
     } catch(e) {
@@ -297,6 +505,13 @@ export default {
     }
   },
   async scheduled(event,env,ctx) {
-    ctx.waitUntil(sendScheduledReport(env));
+    // One cron string covers three Cambodia-time slots:
+    //   0,30 0,11 * * *  ->  00:00, 00:30, 11:00 UTC
+    //                      ->  07:00, 07:30, 18:00 Asia/Phnom_Penh
+    // Kept as a single expression so it consumes one cron slot on the account.
+    const when=new Date(event.scheduledTime);
+    const minutes=ictMinutes(when);
+    if(minutes===450) ctx.waitUntil(sendLearningReminder(env,env.SITE_URL));
+    else ctx.waitUntil(sendScheduledReport(env));
   }
 };

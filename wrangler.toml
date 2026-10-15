@@ -14,10 +14,17 @@ database_id = "cdaf1c1d-5365-4184-b013-6e09acd1330c"
 migrations_dir = "migrations"
 
 [triggers]
-# 00:00 UTC = 07:00 Cambodia; 11:00 UTC = 18:00 Cambodia
-crons = ["0 0,11 * * *"]
+# One cron string covers three Cambodia-time slots, which keeps this Worker at
+# a single cron slot on the account (Workers Free allows 5 per account):
+#   0,30 0,11 * * *  ->  00:00, 00:30 and 11:00 UTC
+#                     ->  07:00, 07:30 and 18:00 Asia/Phnom_Penh (UTC+7)
+# 07:00 and 18:00 send the economic news briefing.
+# 07:30 sends the daily learning reminder (if the user enabled it).
+crons = ["0,30 0,11 * * *"]
 
 [vars]
 APP_NAME = "Economic Intelligence"
 TIMEZONE = "Asia/Phnom_Penh"
 MAX_STORIES = "100"
+# Used in the Telegram learning reminder so the message links to this site.
+SITE_URL = "https://economic-intelligence-dashboard.ebookskh855.workers.dev"

@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101b2d">
+<title>My Skill Development | Khmer24 Growth System</title>
+<style>
+:root{--bg:#f3f6fb;--panel:#fff;--ink:#172338;--muted:#6f7b8f;--line:#e3e9f2;--navy:#101b2d;--blue:#2563eb;--teal:#0f9f91;--red:#c83f4d;--orange:#c87513;--yellow:#9a7811;--green:#13836c;--shadow:0 8px 30px #1723380b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select,textarea{font:inherit}button{cursor:pointer}
+.layout{min-height:100vh;display:grid;grid-template-columns:246px 1fr}
+.sidebar{background:var(--navy);color:#fff;padding:25px 17px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.brand{display:flex;align-items:center;gap:11px;padding:0 8px}
+.brand-mark{width:39px;height:39px;border-radius:12px;background:linear-gradient(135deg,#4c8dff,#23c6aa);display:grid;place-items:center;font-size:20px;font-weight:900;flex:none}
+.brand strong{display:block;font-size:15px;letter-spacing:.2px}.brand small{color:#9eacc3;font-size:11px}
+.nav-label{color:#8291aa;text-transform:uppercase;letter-spacing:1.5px;font-size:10px;font-weight:800;padding:0 12px;margin-bottom:5px}
+.nav{display:grid;gap:5px}.nav button{border:0;background:transparent;color:#c3ccdb;text-align:left;padding:11px 12px;border-radius:10px;display:flex;align-items:center;gap:12px;font-size:14px}
+.nav button.active,.nav button:hover{background:#26364f;color:#fff}.nav button:focus-visible{outline:2px solid #4c8dff;outline-offset:2px}
+.nav .ico{width:19px;text-align:center;font-size:16px;flex:none}
+.side-note{margin-top:auto;background:#1b2b43;border:1px solid #31415a;border-radius:14px;padding:15px;color:#c8d2e1;font-size:12px}
+.side-note b{color:#fff;display:block;margin-bottom:5px}
+.main{min-width:0;padding:27px clamp(16px,3vw,38px) 40px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px;flex-wrap:wrap}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:1.6px;color:var(--blue);font-weight:800}
+.topbar h1{margin:3px 0 0;font-size:clamp(22px,3vw,30px);letter-spacing:-1px}
+.top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.date-chip{border:1px solid var(--line);background:#fff;padding:9px 12px;border-radius:10px;color:var(--muted);font-size:12px}
+.btn{border:0;background:var(--blue);color:#fff;border-radius:10px;padding:10px 15px;font-weight:700;font-size:13px;box-shadow:0 4px 12px #2563eb24}
+.btn:hover{background:#1d4fd0}.btn:disabled{opacity:.6;cursor:not-allowed}
+.btn.secondary{background:#e9efff;color:#234eae;box-shadow:none}.btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);box-shadow:none}
+.btn.tiny{padding:7px 11px;font-size:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+.card h2{margin:0 0 4px;font-size:19px;letter-spacing:-.4px}.card h3{margin:0 0 4px;font-size:15px}
+.sub{font-size:12px;color:var(--muted);margin:0 0 16px}
+.grid{display:grid;gap:14px}.grid.two{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:13px;margin-bottom:18px}
+.metric{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+.metric span{font-size:11px;color:var(--muted);display:block;margin-bottom:6px}
+.metric strong{display:block;font-size:27px;letter-spacing:-1px;line-height:1.15}
+.metric small{font-size:11px;color:var(--muted)}
+.pill{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.6px;padding:4px 8px;border-radius:6px;background:#eef3ff;color:#234eae}
+.pill.green{background:#e7f7f1;color:var(--green)}.pill.red{background:#fff0f1;color:var(--red)}
+.pill.orange{background:#fff4e6;color:var(--orange)}.pill.grey{background:#f0f3f8;color:var(--muted)}
+.bar{height:7px;background:#eef2f8;border-radius:10px;overflow:hidden;margin:8px 0}
+.bar span{height:100%;display:block;background:linear-gradient(90deg,#3478f6,#18b8a0);border-radius:10px;transition:width .35s}
+.skill{background:#fff;border:1px solid var(--line);border-radius:15px;padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:9px}
+.skill-head{display:flex;align-items:center;gap:11px}
+.skill-icon{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#eaf1ff,#e6faf6);color:#234eae;display:grid;place-items:center;font-weight:900;flex:none}
+.skill-meta{font-size:11px;color:var(--muted)}
+.checklist{display:grid;gap:9px;margin:14px 0}
+.check{display:flex;align-items:flex-start;gap:11px;padding:12px;border:1px solid var(--line);border-radius:11px;background:#fbfcfe;cursor:pointer}
+.check:hover{border-color:#c5d5ef}.check input{margin-top:3px;width:17px;height:17px;accent-color:var(--blue);flex:none}
+.check.done{background:#f0faf6;border-color:#bfe6d8}.check .t{font-size:13px;font-weight:600}.check .d{font-size:11px;color:var(--muted)}
+label.f{display:block;margin-bottom:12px}
+label.f span{display:block;font-size:12px;font-weight:600;margin-bottom:5px;color:#4a5870}
+input[type=text],input[type=password],input[type=number],input[type=date],textarea,select{
+ width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;color:var(--ink);outline:none;font-size:14px}
+textarea{min-height:74px;resize:vertical;line-height:1.5}
+input:focus,textarea:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px #2563eb1a}
+.steps{display:grid;gap:10px}
+.step{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:13px;border-radius:12px;border:1px solid var(--line);background:#fbfcfe}
+.step-n{font-size:11px;font-weight:800;color:#fff;background:var(--blue);border-radius:8px;height:26px;display:grid;place-items:center}
+.step.done .step-n{background:var(--green)}.step h4{margin:2px 0 5px;font-size:14px}.step p{margin:0;font-size:13px;color:#4a5870;white-space:pre-wrap}
+.daygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px}
+.day{border:1px solid var(--line);border-radius:11px;padding:9px 6px;text-align:center;background:#fff;font-size:11px;color:var(--muted)}
+.day b{display:block;font-size:14px;color:var(--ink);margin-bottom:3px}
+.day.done{background:#f0faf6;border-color:#bfe6d8}.day.done b{color:var(--green)}
+.day.today{outline:2px solid var(--blue);outline-offset:1px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.item{border:1px solid var(--line);border-radius:13px;padding:15px;margin-bottom:11px;background:#fff}
+.item h4{margin:0 0 5px;font-size:14px}.item p{margin:0 0 8px;font-size:13px;color:#4a5870}
+.entry{border-left:3px solid var(--blue);padding:4px 0 4px 14px;margin-bottom:16px}
+.entry h4{margin:0 0 6px;font-size:14px}.entry dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.entry dt{font-weight:700;color:var(--muted);white-space:nowrap}.entry dd{margin:0;color:#3d4a5e}
+.chart{display:flex;align-items:flex-end;gap:9px;height:130px;padding-top:10px}
+.chart .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.chart .col i{display:block;width:100%;max-width:34px;background:linear-gradient(180deg,#4c8dff,#18b8a0);border-radius:7px 7px 0 0;min-height:3px;font-style:normal}
+.chart .col span{font-size:10px;color:var(--muted)}
+.empty{border:1px dashed #cad5e5;border-radius:13px;padding:28px;text-align:center;color:var(--muted);font-size:13px}
+.status{padding:10px 13px;border-radius:10px;font-size:13px;margin-bottom:14px}
+.status.err{background:#fff0f1;color:var(--red);border:1px solid #f6cdd2}
+.status.ok{background:#e7f7f1;color:var(--green);border:1px solid #bfe6d8}
+.status.info{background:#edf5ff;color:#234eae;border:1px solid #d4e6ff}
+.spin{color:var(--muted);font-size:13px;padding:22px;text-align:center}
+.gate{position:fixed;inset:0;background:#101b2de8;display:grid;place-items:center;padding:20px;z-index:50}
+.gate .box{background:#fff;border-radius:18px;padding:28px;max-width:400px;width:100%;box-shadow:0 20px 60px #0004}
+.modal{position:fixed;inset:0;background:#101b2dbb;display:grid;place-items:center;padding:18px;z-index:40;overflow-y:auto}
+.modal .box{background:#fff;border-radius:18px;padding:26px;max-width:720px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px #0004}
+.toast{position:fixed;bottom:20px;right:20px;background:#14233a;color:#fff;border-radius:10px;padding:12px 16px;font-size:13px;box-shadow:0 8px 30px #0003;display:none;z-index:60;max-width:340px}
+.footer{margin-top:26px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#8792a4;font-size:11px}
+.quiz-opt{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px;font-size:13px}
+.quiz-opt:hover{border-color:var(--blue);background:#f6f9ff}
+.quiz-opt.right{background:#e7f7f1;border-color:#bfe6d8}.quiz-opt.wrong{background:#fff0f1;border-color:#f6cdd2}
+.muted{color:var(--muted)}
+@media(max-width:860px){.layout{display:block}.sidebar{position:static;height:auto}.main{padding:20px 14px}.topbar{align-items:flex-start}}
+@media(max-width:520px){.step{grid-template-columns:1fr}.daygrid{grid-template-columns:repeat(auto-fill,minmax(62px,1fr))}.metric strong{font-size:23px}}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <div class="brand"><div class="brand-mark">KS</div><div><strong>Skill Development</strong><small>Khmer24 Growth System</small></div></div>
+  <div><div class="nav-label">Learn</div><nav class="nav" id="nav">
+    <button class="active" data-tab="today"><span class="ico">◷</span> Today's Plan</button>
+    <button data-tab="skills"><span class="ico">★</span> Five Core Skills</button>
+    <button data-tab="plan"><span class="ico">▦</span> 30-Day Plan</button>
+  </nav></div>
+  <div><div class="nav-label">Apply</div><nav class="nav">
+    <button data-tab="assign"><span class="ico">▤</span> Apply to My Business</button>
+    <button data-tab="progress"><span class="ico">◔</span> Progress Tracker</button>
+    <button data-tab="journal"><span class="ico">✎</span> Learning Journal</button>
+  </nav></div>
+  <div><div class="nav-label">System</div><nav class="nav">
+    <button data-tab="telegram"><span class="ico">➤</span> Telegram Commands</button>
+    <button id="backToNews"><span class="ico">←</span> Economic Intelligence</button>
+    <button id="logoutBtn"><span class="ico">⏻</span> Sign out</button>
+  </nav></div>
+  <div class="side-note"><b>30 minutes a day</b>10 minutes learn. 10 minutes practise. 10 minutes apply it at Khmer24.</div>
+</aside>
+<main class="main">
+  <header class="topbar">
+    <div><div class="eyebrow">Personal development</div><h1 id="pageTitle">Today's Learning Plan</h1></div>
+    <div class="top-actions">
+      <div class="date-chip" id="today">—</div>
+      <button class="btn secondary" id="reloadBtn">↻ Reload</button>
+    </div>
+  </header>
+  <div id="status"></div>
+  <section id="view"></section>
+  <footer class="footer"><span>Khmer24 Growth System · Cloudflare Workers + D1</span><span>Private data. Progress is calculated from your saved records only.</span></footer>
+</main>
+</div>
+
+<div class="gate" id="gate" hidden>
+  <div class="box">
+    <div class="skill-icon" style="margin-bottom:12px">KS</div>
+    <h3 style="margin:0 0 6px">Sign in to your Skill Development</h3>
+    <p class="sub">Your learning records are private. Enter the same ADMIN_SECRET you use for the Economic Intelligence dashboard.</p>
+    <div id="gateMsg" class="status err" hidden></div>
+    <form id="loginForm">
+      <label class="f"><span>Admin secret</span><input type="password" id="secretInput" autocomplete="current-password" required></label>
+      <button class="btn" type="submit" id="loginBtn" style="width:100%">Unlock</button>
+    </form>
+    <p class="sub" style="margin:14px 0 0">Set as a Cloudflare Worker secret named <code>ADMIN_SECRET</code>. Full setup steps are in README.md.</p>
+  </div>
+</div>
+
+<div class="modal" id="modal" hidden><div class="box" id="modalBox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ICT="Asia/Phnom_Penh";
+const TITLES={today:"Today's Learning Plan",skills:"The Five Core Skills",plan:"30-Day Skill Development Plan",
+  assign:"Apply to My Business",progress:"Progress Tracker",journal:"Learning Journal",telegram:"Telegram Commands"};
+let S={tab:"today",today:null,progress:null,plan:[],assignments:[],templates:[],journal:[],assessment:null,reminders:false};
+
+function toast(m){const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(S.tt);S.tt=setTimeout(()=>t.style.display="none",3600)}
+function status(kind,msg){$("status").innerHTML=msg?`<div class="status ${kind}">${esc(msg)}</div>`:""}
+function ictDate(d=new Date()){return new Intl.DateTimeFormat("en-CA",{timeZone:ICT,year:"numeric",month:"2-digit",day:"2-digit"}).format(d)}
+function niceDate(s){if(!s)return"—";const d=new Date(s);return isNaN(d)?"—":d.toLocaleDateString("en-GB",{timeZone:ICT,day:"2-digit",month:"short",year:"numeric"})}
+
+async function api(path,opts={}){
+  const r=await fetch(path,{credentials:"same-origin",headers:{"content-type":"application/json",accept:"application/json",...(opts.headers||{})},...opts});
+  if(r.status===401){showGate();throw new Error("Session expired. Please sign in again.");}
+  const text=await r.text();
+  let d={};try{d=JSON.parse(text)}catch{d={error:"Unexpected server response"}}
+  if(!r.ok)throw new Error(d.error||("API "+r.status));
+  return d;
+}
+
+function showGate(){$("gate").hidden=false;$("view").innerHTML='<div class="spin">Loading…</div>'}
+function hideGate(){$("gate").hidden=true}
+
+// ---------------------------------------------------------------- login
+$("loginForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const btn=$("loginBtn");btn.disabled=true;btn.textContent="Checking…";$("gateMsg").hidden=true;
+  try{
+    await api("/api/skills/login",{method:"POST",body:JSON.stringify({secret:$("secretInput").value})});
+    $("secretInput").value="";hideGate();await boot();
+  }catch(err){$("gateMsg").hidden=false;$("gateMsg").textContent=err.message;}
+  finally{btn.disabled=false;btn.textContent="Unlock";}
+});
+$("logoutBtn").addEventListener("click",async()=>{
+  try{await api("/api/skills/logout",{method:"POST"})}catch{}
+  location.reload();
+});
+
+// ---------------------------------------------------------------- loading
+async function boot(){
+  try{
+    const s=await api("/api/skills/session");
+    if(!s.authenticated){showGate();return}
+    hideGate();
+    await loadAll();
+  }catch(e){ if(e.message.includes("sign in")){showGate()} else {status("err",e.message)} }
+}
+async function loadAll(){
+  $("view").innerHTML='<div class="spin">Loading your learning data…</div>';
+  try{
+    const [today,progress,plan,assignments,templates,journal,prefs]=await Promise.all([
+      api("/api/skills/today"),api("/api/skills/progress"),api("/api/skills/plan"),
+      api("/api/skills/assignments"),api("/api/skills/assignments/templates"),
+      api("/api/skills/journal?limit=40"),api("/api/skills/preferences")]);
+    S.today=today;S.progress=progress;S.plan=plan.plan||[];S.assignments=assignments.assignments||[];
+    S.templates=templates.templates||[];S.journal=journal.entries||[];S.reminders=prefs.remindersEnabled;
+    status("");render();
+  }catch(e){$("view").innerHTML=`<div class="status err">${esc(e.message)}</div>`}
+}
+const reload=()=>$("reloadBtn").addEventListener("click",loadAll);
+
+// ---------------------------------------------------------------- render
+function render(){
+  $("pageTitle").textContent=TITLES[S.tab]||"Skill Development";
+  document.querySelectorAll("#nav [data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===S.tab));
+  const v=$("view");
+  v.innerHTML=({today:rToday,skills:rSkills,plan:rPlan,assign:rAssign,progress:rProgress,journal:rJournal,telegram:rTelegram}[S.tab]||rToday)();
+}
+document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{S.tab=b.dataset.tab;render();window.scrollTo({top:0,behavior:"smooth"})}));
+$("backToNews").addEventListener("click",()=>location.href="/");
+
+const meter=pct=>{const p=Math.max(0,Math.min(100,pct||0));return `<div class="bar"><span style="width:${p}%"></span></div>`};
+
+// ---------------------------------------------------------------- A. today
+function rToday(){
+  const t=S.today;if(!t||!t.lesson)return '<div class="empty">No lesson available yet.</div>';
+  const l=t.lesson,s=t.session||{},r=t.routine;
+  const step=(key,label,mins)=>{
+    const done=key==="learn"?s.step_learned:key==="analyze"?s.step_analyzed:s.step_applied;
+    return `<label class="check ${done?"done":""}"><input type="checkbox" data-step="${key}" ${done?"checked":""}>
+      <span><span class="t">${label} <span class="muted">· ${mins} min</span></span>
+      <span class="d">${key==="learn"?"Read the lesson below":key==="analyze"?"Work the exercise":`Apply: ${l.action.slice(0,70)}…`}</span></span></label>`;};
+  return `
+  <div class="card">
+    <div class="row"><div><h2>Day ${l.day} of ${t.totalDays} · ${l.title}</h2>
+      <p class="sub">${esc(t.date)} · Skill: ${esc(t.skill?.name||l.skill)} ${t.isCatchUp?'<span class="pill green">Program complete — reviewing</span>':""}</p></div>
+      <span class="pill ${s.completed?"green":"grey"}">${s.completed?"Completed today":"In progress"}</span></div>
+    <h3>Learning objective</h3><p class="muted" style="margin-top:0">${esc(l.objective)}</p>
+  </div>
+
+  <div class="card"><h3>Your 30-minute routine</h3><p class="sub">Tick each block as you finish it. All three marks the day complete.</p>
+    <div class="checklist">${step("learn","Learn one concept",10)}${step("analyze","Analyse a business case",10)}${step("apply","Apply it at Khmer24",10)}</div>
+    <label class="f"><span>Study time in minutes</span><input type="number" id="minutes" min="0" max="600" value="${s.minutes||30}"></label>
+    <label class="f"><span>Personal notes</span><textarea id="notes" placeholder="What clicked? What will you do differently?">${esc(s.notes||"")}</textarea></label>
+    <button class="btn" id="saveDay">Save today's progress</button>
+  </div>
+
+  <div class="card"><h3>Lesson</h3><p class="sub">Beginner friendly. Read it once, then try to explain it in your own words.</p>
+    <div style="white-space:pre-wrap">${esc(l.explanation)}</div></div>
+
+  <div class="card"><h3>Practical business case</h3><div style="white-space:pre-wrap">${esc(l.example)}</div></div>
+
+  <div class="steps">
+    <div class="step"><div class="step-n">10 MIN</div><div><h4>Analyse this</h4><p>${esc(l.exercise)}</p></div></div>
+    <div class="step"><div class="step-n">10 MIN</div><div><h4>Apply it at work</h4><p>${esc(l.action)}</p></div></div>
+    <div class="step"><div class="step-n">REFLECT</div><div><h4>Reflection question</h4><p>${esc(l.reflection)}</p></div></div>
+  </div>
+
+  <div class="card" style="margin-top:16px"><div class="row">
+    <div><h3>Quick quiz</h3><p class="sub">One question. Pass it and the result is saved to your record.</p></div>
+    <button class="btn secondary tiny" data-quiz="${l.day}">Start quiz</button></div></div>`;
+}
+
+// ---------------------------------------------------------------- B. skills
+function rSkills(){
+  const ps=S.progress;if(!ps)return '<div class="spin">Loading…</div>';
+  return `<div class="card"><div class="row"><div><h2>Overall progress</h2>
+      <p class="sub">${ps.overall.completedLessons} of ${ps.overall.totalLessons} lessons complete · ${ps.overall.percent}%</p></div>
+    <span class="pill">🔥 ${ps.overall.currentStreak} day streak</span></div>${meter(ps.overall.percent)}</div>
+  <div class="grid two">${ps.bySkill.map(s=>`
+    <div class="skill"><div class="skill-head"><div class="skill-icon">${esc(s.icon||"?")}</div>
+      <div><h3 style="margin:0">${esc(s.name)}</h3><div class="skill-meta">${s.completedLessons}/${s.totalLessons} lessons · ${s.percent}%</div></div></div>
+      <p class="sub" style="margin:0">${esc(s.description)}</p>
+      ${meter(s.percent)}
+      <div class="row" style="font-size:12px"><span class="muted">Last studied: ${niceDate(s.lastStudied)}</span>
+        <span class="muted">Next: Day ${s.nextLesson?.day??"—"}</span></div>
+      <div class="muted" style="font-size:12px">Next lesson: ${esc(s.nextLesson?.title||"All done")}</div>
+      <button class="btn tiny" data-open="${s.nextLesson?.day||1}">Continue learning</button></div>`).join("")}</div>`;
+}
+
+// ---------------------------------------------------------------- C. plan
+function rPlan(){
+  const done=S.plan.filter(p=>p.completed).length;
+  const today=S.today?.lesson?.day;
+  return `<div class="card"><div class="row"><div><h2>30-Day Skill Development Plan</h2>
+    <p class="sub">${done} of ${S.plan.length} complete. Click any day to open the lesson.</p></div></div>${meter(S.plan.length?done/S.plan.length*100:0)}</div>
+  <div class="card"><h3>Schedule</h3><p class="sub">Six cycles through the five skills.</p>
+  <div class="daygrid">${S.plan.map(p=>`<button class="day ${p.completed?"done":""} ${p.day===today?"today":""}" data-open="${p.day}">
+    <b>${p.day}</b>${esc((p.skill_name||p.skill||"").split(" ")[0])}</button>`).join("")}</div></div>
+  <div class="card"><button class="btn secondary" data-assessment="1">Open the 30-day final assessment</button></div>`;
+}
+
+// ---------------------------------------------------------------- D. assign
+function rAssign(){
+  const done=S.assignments.filter(a=>a.status==="done").length;
+  return `<div class="card"><h2>Apply to My Business</h2>
+    <p class="sub">Connect each skill to real Khmer24 work. ${done} assignment${done===1?"":"s"} completed.</p>
+    <button class="btn" id="newAssign">+ Start a new assignment</button></div>
+  ${S.assignments.length?S.assignments.map(a=>`<div class="item">
+    <div class="row"><div><h4>${esc(a.title)}</h4>
+      <span class="pill ${a.status==="done"?"green":a.status==="active"?"orange":"grey"}">${esc(a.status)}</span>
+      <span class="pill grey">${esc(a.skill)}</span></div>
+      <button class="btn secondary tiny" data-edit="${a.id}">Edit</button></div>
+    <p style="margin-top:9px">${esc(a.prompt||"")}</p>
+    ${row("Problem",a.problem)}${row("Analysis",a.analysis)}${row("Proposed solution",a.solution)}
+    ${row("Expected result",a.expected_result)}${row("Actual result",a.actual_result)}
+    ${row("Lessons learned",a.lessons_learned)}${row("Next action",a.next_action)}</div>`).join("")
+    :'<div class="empty">No assignments yet. Start one above, or send /practice in Telegram.</div>'}
+  <div class="card"><h3>Assignment templates</h3><p class="sub">Ready-made assignments, two per skill.</p>
+    <div class="grid two">${S.templates.map(t=>`<div class="item"><h4>${esc(t.title)}</h4>
+      <p>${esc(t.prompt)}</p><button class="btn secondary tiny" data-tmpl="${esc(t.id)}">Start this</button></div>`).join("")}</div></div>`;
+}
+const row=(l,v)=>v?`<p style="margin:4px 0;font-size:12px"><b>${esc(l)}:</b> ${esc(v)}</p>`:"";
+
+// ---------------------------------------------------------------- E. progress
+function rProgress(){
+  const p=S.progress;if(!p)return '<div class="spin">Loading…</div>';
+  const o=p.overall,max=Math.max(1,...p.weekly.map(w=>w.completed));
+  return `<div class="metrics">
+    <div class="metric"><span>Lessons complete</span><strong>${o.completedLessons}/${o.totalLessons}</strong><small>${p.programDays}-day program</small></div>
+    <div class="metric"><span>Overall</span><strong>${p.overall.percent}%</strong><small>completion</small></div>
+    <div class="metric"><span>Current streak</span><strong>🔥 ${o.currentStreak}</strong><small>consecutive days</small></div>
+    <div class="metric"><span>This week</span><strong>${o.thisWeekLessons}</strong><small>lessons</small></div>
+    <div class="metric"><span>Study time</span><strong>${o.totalMinutes}</strong><small>minutes total</small></div>
+    <div class="metric"><span>Assignments</span><strong>${o.completedAssignments}</strong><small>completed</small></div>
+    <div class="metric"><span>Quiz accuracy</span><strong>${o.quizAccuracy}%</strong><small>${o.quizCorrect}/${o.quizAttempts} correct</small></div>
+    <div class="metric"><span>Journal</span><strong>${o.journalEntries}</strong><small>entries written</small></div>
+  </div>
+  <div class="card"><h3>Progress by skill</h3><p class="sub">Calculated from your completed lessons.</p>
+    ${p.bySkill.map(s=>`<div style="margin-bottom:12px"><div class="row" style="font-size:13px">
+      <b>${esc(s.name)}</b><span class="muted">${s.completedLessons}/${s.totalLessons} · ${s.percent}%</span></div>
+      ${meter(s.percent)}</div>`).join("")}</div>
+  <div class="card"><h3>This week</h3><p class="sub">Lessons completed per day, Cambodia time.</p>
+    <div class="chart">${p.weekly.map(w=>`<div class="col" title="${w.date}: ${w.completed} lesson(s), ${w.minutes} min">
+      <i style="height:${Math.max(3,(w.completed/max)*100)}%"></i><span>${esc(w.label)}</span></div>`).join("")}</div></div>
+  <div class="card"><h3>Needs improvement</h3><p class="sub">Lowest completion first.</p>
+    ${p.needsImprovement.length?p.needsImprovement.map(s=>`<p style="margin:6px 0"><b>${esc(s.name)}</b> — ${s.percent}%
+      <button class="btn secondary tiny" data-tab-jump="${esc(s.key)}">Plan it</button></p>`).join("")
+      :'<p class="muted">Nothing flagged. Keep the daily rhythm going.</p>'}</div>
+  <div class="card"><h3>Weekly summary</h3><p class="sub">Generated from saved sessions.</p>
+    <p style="margin:0">${o.thisWeekLessons} lesson${o.thisWeekLessons===1?"":"s"} completed in the last 7 days ·
+      ${o.currentStreak}-day streak · ${o.totalMinutes} total study minutes ·
+      ${o.completedAssignments} business assignment${o.completedAssignments===1?"":"s"} finished.</p></div>`;
+}
+
+// ---------------------------------------------------------------- F. journal
+function rJournal(){
+  const t=S.today?.journalToday;
+  return `<div class="card"><h2>Learning Journal</h2><p class="sub">One entry per day, Cambodia time. Saved entries can be edited any time.</p>
+    <div id="jmsg" hidden></div>
+    <form id="journalForm" class="grid two">
+      <div>${jf("learned","What did I learn today?")}${jf("applied","What did I apply at work?")}${jf("worked_well","What worked well?")}</div>
+      <div>${jf("did_not_work","What did not work?")}${jf("improve","What do I need to improve?")}${jf("next_action","My next action?")}
+        <label class="f"><span>How was today (1-5)</span><input type="number" name="mood" min="1" max="5" value="${t?.mood||""}"></label>
+        <button class="btn" type="submit">Save journal entry</button></div>
+    </form></div>
+  <div class="card"><h3>Previous entries</h3><p class="sub">Newest first.</p>
+    ${S.journal.length?S.journal.map(e=>`<div class="item"><div class="row"><h4>${niceDate(e.entry_date)}</h4>
+      <button class="btn ghost tiny" data-jedit="${niceDate(e.entry_date)}">Edit</button></div>
+      <div class="entry" style="margin-top:8px"><dl>
+        ${e.learned?`<dt>Learned</dt><dd>${esc(e.learned)}</dd>`:""}
+        ${e.applied?`<dt>Applied</dt><dd>${esc(e.applied)}</dd>`:""}
+        ${e.worked_well?`<dt>Worked well</dt><dd>${esc(e.worked_well)}</dd>`:""}
+        ${e.did_not_work?`<dt>Did not work</dt><dd>${esc(e.did_not_work)}</dd>`:""}
+        ${e.improve?`<dt>Improve</dt><dd>${esc(e.improve)}</dd>`:""}
+        ${e.next_action?`<dt>Next action</dt><dd>${esc(e.next_action)}</dd>`:""}</dl></div></div>`).join("")
+      :'<div class="empty">No journal entries yet. Write your first one above.</div>'}</div>`;
+}
+const jf=(n,l)=>`<label class="f"><span>${l}</span><textarea name="${n}"></textarea></label>`;
+
+// ---------------------------------------------------------------- telegram
+function rTelegram(){
+  const cmds=[["/skills","Show the five core skills and current progress"],
+    ["/learn","Today's 30-minute lesson"],
+    ["/lesson 7","Open the lesson for day 7 (1-30)"],
+    ["/progress","Full progress tracker"],
+    ["/quiz","Short quiz on today's topic, then reply 1-4"],
+    ["/practice","Practical business assignment"],
+    ["/journal","Guide for today's reflection"],
+    ["/reminder_on","Enable daily 07:30 reminders"],
+    ["/reminder_off","Disable daily reminders"]];
+  return `<div class="card"><div class="row"><div><h2>Telegram commands</h2>
+    <p class="sub">All news commands keep working alongside these.</p></div>
+    <span class="pill ${S.reminders?"green":"grey"}">Reminders ${S.reminders?"on":"off"}</span></div>
+    <button class="btn ${S.reminders?"ghost":""}" id="remToggle">${S.reminders?"Turn reminders off":"Turn reminders on"}</button>
+    <p class="sub" style="margin:14px 0 0">Reminders arrive daily at <b>07:30 Cambodia time</b> with the skill, the lesson, and why it matters.</p></div>
+  <div class="card"><h3>Available commands</h3><p class="sub">News: /today /cambodia /asean /global /opportunities /refresh</p>
+    ${cmds.map(([c,d])=>`<div class="item" style="padding:10px 13px"><div class="row"><code style="font-weight:700">${esc(c)}</code><span class="muted" style="font-size:12px">${esc(d)}</span></div></div>`).join("")}</div>`;
+}
+
+// ---------------------------------------------------------------- actions
+document.addEventListener("change",async e=>{
+  const k=e.target.dataset.step;if(!k)return;
+  const body={day:S.today.lesson.day,date:S.today.date,
+    step_learned:$('[data-step=learn]').checked?1:0,
+    step_analyzed:$('[data-step=analyze]').checked?1:0,
+    step_applied:$('[data-step=apply]').checked?1:0,
+    minutes:Number($("minutes")?.value||30),notes:$("notes")?.value||""};
+  try{await api("/api/skills/progress",{method:"POST",body:JSON.stringify(body)});await loadAll();toast("Progress saved.")}
+  catch(err){status("err",err.message)}
+});
+
+document.addEventListener("click",async e=>{
+  const t=e.target;
+  if(t.id==="saveDay"){
+    try{
+      await api("/api/skills/progress",{method:"POST",body:JSON.stringify({day:S.today.lesson.day,date:S.today.date,
+        step_learned:$('[data-step=learn]').checked?1:0,step_analyzed:$('[data-step=analyze]').checked?1:0,
+        step_applied:$('[data-step=apply]').checked?1:0,minutes:Number($("minutes").value||30),notes:$("notes").value})});
+      await loadAll();toast("Day saved.");
+    }catch(err){status("err",err.message)}
+  }
+  if(t.dataset.open)openLesson(t.dataset.open);
+  if(t.dataset.quiz)openQuiz(t.dataset.quiz);
+  if(t.dataset.assessment)openAssessment();
+  if(t.dataset.tabJump){S.tab="skills";render()}
+  if(t.dataset.edit)openAssignment(S.assignments.find(a=>String(a.id)===t.dataset.edit));
+  if(t.dataset.tmpl){
+    const tpl=S.templates.find(x=>x.id===t.dataset.tmpl);
+    openAssignment({id:"",assignment_key:tpl.id,skill:tpl.skill,title:tpl.title,prompt:tpl.prompt,status:"draft"});
+  }
+  if(t.id==="newAssign")openAssignment({id:"",skill:"strategic",title:"",prompt:"",status:"draft"});
+  if(t.dataset.jedit){
+    const rec=S.journal.find(j=>niceDate(j.entry_date)===t.dataset.jedit);
+    if(rec)fillJournal(rec);
+  }
+  if(t.id==="remToggle"){
+    try{await api("/api/skills/preferences",{method:"POST",body:JSON.stringify({remindersEnabled:!S.reminders})});await loadAll();toast("Reminder setting saved.")}
+    catch(err){status("err",err.message)}
+  }
+  if(t.id==="closeModal"||t.id==="modal"){$("modal").hidden=true}
+});
+
+function fillJournal(rec){
+  const f=$("journalForm");if(!f)return;
+  for(const k of ["learned","applied","worked_well","did_not_work","improve","next_action"]){
+    if(f.elements[k])f.elements[k].value=rec[k]||"";
+  }
+  S.editingJournal=rec.entry_date;
+  $("view").scrollIntoView({behavior:"smooth"});
+}
+
+$("view").addEventListener("submit",async e=>{
+  if(e.target.id!=="journalForm")return;
+  e.preventDefault();
+  const f=new FormData(e.target);
+  const body={date:S.editingJournal||ictDate()};
+  for(const k of ["learned","applied","worked_well","did_not_work","improve","next_action"])body[k]=f.get(k)||"";
+  body.mood=f.get("mood")||null;
+  try{await api("/api/skills/journal",{method:"POST",body:JSON.stringify(body)});S.editingJournal=null;await loadAll();toast("Journal entry saved.")}
+  catch(err){status("err",err.message)}
+});
+
+// modal helpers
+function openModal(html){$("modalBox").innerHTML=html;$("modal").hidden=false}
+function closeModal(){$("modal").hidden=true}
+
+async function openLesson(day){
+  try{
+    const {lesson:l}=await api("/api/skills/lesson?day="+encodeURIComponent(day));
+    openModal(`<div class="row"><div><h2 style="margin:0">Day ${l.day} · ${esc(l.title)}</h2>
+      <p class="sub">Skill: ${esc(l.skill)}</p></div><button class="btn ghost tiny" id="closeModal">Close</button></div>
+      <h3>Objective</h3><p>${esc(l.objective)}</p>
+      <h3>Lesson</h3><div style="white-space:pre-wrap">${esc(l.explanation)}</div>
+      <h3>Business example</h3><div style="white-space:pre-wrap">${esc(l.example)}</div>
+      <h3>Exercise</h3><p>${esc(l.exercise)}</p>
+      <h3>Apply at work</h3><p>${esc(l.action)}</p>
+      <h3>Reflect</h3><p>${esc(l.reflection)}</p>
+      <div class="row" style="margin-top:16px">
+        ${Number(day)>1?'<button class="btn secondary" data-open="'+(Number(day)-1)+'">← Previous</button>':""}
+        ${Number(day)<S.plan.length?'<button class="btn" data-open="'+(Number(day)+1)+'">Next lesson →</button>':""}
+        <button class="btn ghost" data-quiz="${l.day}">Take the quiz</button></div>`);
+  }catch(e){toast(e.message)}
+}
+
+async function openQuiz(day){
+  try{
+    const {lesson:l}=await api("/api/skills/lesson?day="+encodeURIComponent(day));
+    openModal(`<div class="row"><div><h2 style="margin:0">Quiz · Day ${l.day}</h2></div>
+      <button class="btn ghost tiny" id="closeModal">Close</button></div>
+      <p style="margin:14px 0"><b>${esc(l.quiz.question)}</b></p>
+      <div id="quizOpts">${l.quiz.options.map((o,i)=>`<button class="quiz-opt" data-choice="${i}">${i+1}. ${esc(o)}</button>`).join("")}</div>
+      <div id="quizResult"></div>`);
+  }catch(e){toast(e.message)}
+}
+$("modal").addEventListener("click",async e=>{
+  const t=e.target;
+  if(t.id==="modal"||$("modal").contains(t)&&t.id==="closeModal"){closeModal();return}
+  if(t.dataset.choice!==undefined){
+    const day=t.closest(".box").querySelector("[data-choice]").dataset.day||S.today.lesson.day;
+    try{
+      const r=await api("/api/skills/quiz",{method:"POST",body:JSON.stringify({day:Number(day),chosen:Number(t.dataset.choice)})});
+      document.querySelectorAll("#quizOpts .quiz-opt").forEach(b=>{b.disabled=true;
+        b.classList.add(Number(b.dataset.choice)===r.correctIndex?"right":"wrong")});
+      $("quizResult").innerHTML=`<div class="status ${r.correct?"ok":"err"}">${r.correct?"Correct.":"Not quite."} ${esc(r.explain)}</div>`;
+      await loadAll();
+    }catch(err){toast(err.message)}
+  }
+});
+
+function openAssignment(a){
+  const f=(n,l,v="")=>`<label class="f"><span>${l}</span><textarea name="${n}">${esc(v||"")}</textarea></label>`;
+  openModal(`<div class="row"><div><h2 style="margin:0">Business assignment</h2></div>
+    <button class="btn ghost tiny" id="closeModal">Close</button></div>
+    <form id="assignForm" data-id="${a.id||""}" data-key="${esc(a.assignment_key||"")}">
+      <label class="f"><span>Title</span><input type="text" name="title" value="${esc(a.title||"")}"></label>
+      <label class="f"><span>Skill</span><select name="skill">${["strategic","sales","leadership","financial","digital"]
+        .map(s=>`<option value="${s}" ${a.skill===s?"selected":""}>${s}</option>`).join("")}</select></label>
+      <label class="f"><span>Assignment brief</span><textarea name="prompt">${esc(a.prompt||"")}</textarea></label>
+      <div class="grid two">${f("problem","Business problem",a.problem)}${f("analysis","Analysis",a.analysis)}
+        ${f("solution","Proposed solution",a.solution)}${f("expected_result","Expected result",a.expected_result)}
+        ${f("actual_result","Actual result",a.actual_result)}${f("lessons_learned","Lessons learned",a.lessons_learned)}
+        ${f("next_action","Next action",a.next_action)}</div>
+      <label class="f"><span>Status</span><select name="status">${["draft","active","done"].map(s=>`<option ${a.status===s?"selected":""}>${s}</option>`).join("")}</select></label>
+      <button class="btn" type="submit">Save assignment</button></div></form>`);
+}
+$("modal").addEventListener("submit",async e=>{
+  if(e.target.id!=="assignForm")return;
+  e.preventDefault();
+  const f=new FormData(e.target),el=e.target;
+  const body={id:el.dataset.id?Number(el.dataset.id):undefined,assignment_key:el.dataset.key||undefined,
+    title:f.get("title"),skill:f.get("skill"),prompt:f.get("prompt"),status:f.get("status")};
+  for(const k of ["problem","analysis","solution","expected_result","actual_result","lessons_learned","next_action"])body[k]=f.get(k)||"";
+  try{await api("/api/skills/assignments",{method:"POST",body:JSON.stringify(body)});closeModal();await loadAll();toast("Assignment saved.")}
+  catch(err){toast(err.message)}
+});
+
+async function openAssessment(){
+  try{
+    const {assessment:a}=await api("/api/skills/assessment");
+    openModal(`<div class="row"><div><h2 style="margin:0">${esc(a.title||"30-Day Assessment")}</h2></div>
+      <button class="btn ghost tiny" id="closeModal">Close</button></div>
+      <p>${esc(a.intro||"")}</p>
+      ${(a.sections||[]).map(sec=>`<h3>${esc(sec.title)}</h3>
+        <ul>${(sec.questions||[]).map(q=>`<li>${esc(q)}</li>`).join("")}</ul>`).join("")}
+      <h3>Final reflection</h3><ul>${(a.summaryPrompts||[]).map(q=>`<li>${esc(q)}</li>`).join("")}</ul>
+      <p class="sub">Write your answers in the Learning Journal and link them to your assignments.</p>`);
+  }catch(e){toast(e.message)}
+}
+
+// ---------------------------------------------------------------- init
+$("today").textContent=new Date().toLocaleDateString("en-GB",{timeZone:ICT,weekday:"short",day:"numeric",month:"short",year:"numeric"})+" · ICT";
+reload();boot();
+</script>
+</body></html>

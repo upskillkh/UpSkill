@@ -1,5 +1,22 @@
 # Copy to .dev.vars for local development only. Never commit real secrets.
+
+# --- Telegram -------------------------------------------------------------
+# Bot token from @BotFather. Use a DEDICATED bot for this project:
+# Telegram allows only one webhook per token, so sharing a token with another
+# deployed Worker would hijack that service.
 TELEGRAM_BOT_TOKEN=
+# Your personal numeric Telegram chat ID (not @username).
+# Send /start to the bot, then run: node telegram-check.cjs
 ALLOWED_CHAT_ID=
+# Webhook secret. Letters, numbers, _ and - only (no URL-encoding problems).
+# Generate one with: node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 TELEGRAM_WEBHOOK_SECRET=
+# Admin secret. Protects /api/refresh, /api/telegram/test and all
+# /api/skills/* personal data routes (journal, assignments, progress).
 ADMIN_SECRET=
+
+# --- Optional -------------------------------------------------------------
+# Absolute URL of the deployed site, used in the daily learning reminder so the
+# Telegram message links back to /skills.html. Set this in wrangler.toml [vars]
+# as SITE_URL for production; it is only read from the environment here.
+# SITE_URL=https://your-worker.workers.dev

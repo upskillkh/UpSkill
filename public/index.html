@@ -23,6 +23,7 @@
     <button data-view="Global"><span class="ico">◉</span> Global Markets</button>
     <button data-view="opportunities"><span class="ico">✦</span> Business Opportunities</button>
   </nav></div>
+  <div><div class="nav-label">My growth</div><nav class="nav"><button id="skillsNav"><span class="ico">◉</span> My Skill Development</button></nav></div>
   <div><div class="nav-label">System</div><nav class="nav"><button id="refreshSide"><span class="ico">↻</span> Refresh news</button><button id="telegramSide"><span class="ico">➤</span> Telegram connection</button></nav></div>
   <div class="side-note"><b>Think like a business leader</b>News → Why → Money flow → Cambodia impact → Business opportunity → Action.</div>
 </aside>
@@ -129,6 +130,7 @@ $("priorityFilter").addEventListener("change",()=>{state.shown=15;filterStories(
 $("moreBtn").addEventListener("click",()=>{state.shown+=15;renderStories()});
 $("refreshBtn").addEventListener("click",refreshServer);$("refreshSide").addEventListener("click",refreshServer);
 $("telegramSide").addEventListener("click",()=>toast("Telegram setup steps are in README.md. Set secrets, deploy, then register the webhook."));
+$("skillsNav").addEventListener("click",()=>location.href="/skills.html");
 $("today").textContent=new Date().toLocaleDateString("en-GB",{timeZone:"Asia/Phnom_Penh",weekday:"short",day:"numeric",month:"short",year:"numeric"})+" · ICT";
 loadNews();
 </script>

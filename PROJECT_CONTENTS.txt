@@ -1,11 +1,23 @@
-Economic Intelligence Cloudflare Project
+Khmer24 Growth System — Cloudflare Project
+Economic Intelligence dashboard + My Skill Development module
 
 .dev.vars.example
 .gitignore
 DEPLOY_CHECKLIST.md
 README.md
 migrations/0001_init.sql
+migrations/0002_skills.sql
+migrations/0003_seed_skills.sql
 package.json
+package-lock.json
 public/index.html
+public/skills.html
+src/auth.js
+src/skills-data.js
+src/skills-telegram.js
+src/skills.js
 src/worker.js
+tests/api.test.mjs
+tests/curriculum.test.mjs
+telegram-check.cjs
 wrangler.toml

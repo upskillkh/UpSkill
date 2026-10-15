@@ -1,27 +1,65 @@
-# Economic Intelligence Website — Cloudflare Edition
+# Khmer24 Growth System — Economic Intelligence + Skill Development
 
-A cloud-first business intelligence dashboard for Cambodia → ASEAN → Global, with RSS collection, Cloudflare D1 storage, Telegram commands, and scheduled reports.
+A cloud-first business intelligence dashboard for Cambodia → ASEAN → Global, combined with a
+personal skill development system that turns daily learning into real business growth at Khmer24.
 
-This project is a **deployment-ready starter**. It is not already deployed to your Cloudflare account. You must create the Cloudflare resources and add your private Telegram secrets using the steps below.
+Everything runs on Cloudflare after deployment. Your computer is only used to deploy.
 
 ## Included
 
+### Economic Intelligence
+
 - Responsive business intelligence website with search, region filters, priority tags, regional coverage, and opportunity prompts.
 - Cloudflare Worker API and D1 database.
-- RSS collector for a set of business/economic feeds; feed availability can change.
-- Telegram bot commands: `/start`, `/help`, `/today`, `/cambodia`, `/asean`, `/global`, `/opportunities`, `/refresh`.
-- Automatic Telegram briefings at **07:00 and 18:00 Cambodia time** (Cloudflare cron uses UTC).
+- RSS collector across 25 verified feeds (ASEAN, markets, world, and Cambodia-specific).
+- Telegram news commands: `/today`, `/cambodia`, `/asean`, `/global`, `/opportunities`, `/refresh`.
+- Automatic Telegram briefings at **07:00 and 18:00 Cambodia time**.
 - Private admin endpoints protected by `ADMIN_SECRET`.
 - Telegram webhook protected by Telegram's webhook secret header.
-- Dashboard sample content is clearly labelled as a preview when the database has no collected stories.
+
+### My Skill Development
+
+- **Today's Learning Plan** — a 30-minute routine of 10 min learn, 10 min analyse, 10 min apply, with checkboxes, notes, minutes and completion state.
+- **The Five Core Skills** — Strategic Thinking, Sales & Revenue Growth, Leadership & Management, Financial & Data Analysis, Digital & AI Skills, each with progress tracking.
+- **30-Day Skill Development Plan** — 30 unique lessons on a fixed rotation, every lesson with an objective, explanation, Cambodian business case, exercise, work action, reflection question and quiz.
+- **Apply to My Business** — 10 assignment templates plus editable records for problem, analysis, solution, expected result, actual result, lessons learned and next action.
+- **Progress Tracker** — overall completion, per-skill progress, weekly chart, streak, study minutes, quiz accuracy and skills needing improvement. Every number is computed from saved rows in D1.
+- **Learning Journal** — one editable entry per day covering learned, applied, worked well, did not work, improve and next action.
+- **30-day final assessment** with per-skill sections and summary prompts.
+
+### Telegram skill commands
+
+`/skills`, `/learn`, `/lesson 1-30`, `/progress`, `/quiz`, `/practice`, `/journal`, `/reminder_on`, `/reminder_off` — all alongside the existing news commands.
+
+### Daily learning reminder
+
+Sent at **07:30 Cambodia time** (00:30 UTC). Respects the reminder setting and will not send twice in one day.
 
 ## Architecture
 
-Browser → Cloudflare Worker → Cloudflare D1  
-Cloudflare Cron → RSS feeds → D1 → Telegram Bot API  
-Telegram webhook → Worker → D1 → Telegram Bot API
+```
+Browser -> Cloudflare Worker -> Cloudflare D1
+Cloudflare Cron -> RSS feeds -> D1 -> Telegram Bot API
+Cloudflare Cron -> 07:30 learning reminder -> Telegram
+Telegram webhook -> Worker -> D1 -> Telegram Bot API
+```
 
-Everything runs in the cloud after deployment; the website does not depend on your Windows PC.
+## Source layout
+
+| Path | Purpose |
+| --- | --- |
+| `src/worker.js` | Worker entry: news API, RSS collector, Telegram dispatch, skill API, cron |
+| `src/skills.js` | Skill domain logic: seeding, progress, streak, journal, assignments |
+| `src/skills-data.js` | The 30-lesson curriculum, 5 skills, 10 assignments, assessment |
+| `src/skills-telegram.js` | Telegram message formatting and command handlers |
+| `src/auth.js` | HMAC-signed session cookie protecting personal data |
+| `public/index.html` | Economic Intelligence dashboard |
+| `public/skills.html` | My Skill Development dashboard |
+| `migrations/0001_init.sql` | News table (original) |
+| `migrations/0002_skills.sql` | Skill Development tables |
+| `migrations/0003_seed_skills.sql` | Seeds the five skills, idempotently |
+| `tests/curriculum.test.mjs` | Offline curriculum integrity checks |
+| `tests/api.test.mjs` | Live API integration tests |
 
 ## Requirements
 
@@ -167,19 +205,94 @@ curl -X POST "YOUR_WORKER_URL/api/telegram/test" -H "Authorization: Bearer YOUR_
 
 ## Scheduled reports
 
-Cloudflare Workers cron expressions use UTC. This project uses:
-- `0 0 * * *` = 07:00 Asia/Phnom_Penh
-- `0 11 * * *` = 18:00 Asia/Phnom_Penh
+Cloudflare cron uses UTC. Cambodia is UTC+7, so `wrangler.toml` uses:
 
-The schedule is configured in `wrangler.toml`. Cron triggers are approximate scheduling infrastructure and may run with normal platform scheduling variation.
+```toml
+crons = ["0,30 0,11 * * *"]
+```
+
+| UTC | Cambodia | What happens |
+| --- | --- | --- |
+| 00:00 | 07:00 | Economic news briefing to Telegram |
+| 00:30 | 07:30 | Daily learning reminder (only if reminders are enabled) |
+| 11:00 | 18:00 | Economic news briefing to Telegram |
+
+This is deliberately a **single cron string**. Workers Free allows 5 cron triggers per account, and
+Cloudflare counts strings rather than expanded times, so one expression covers all three Cambodia-time
+slots. The handler branches on `scheduled.scheduledTime`: if the Cambodia-local time is 07:30 it sends
+the learning reminder, otherwise it sends the news briefing.
+
+Cron triggers are approximate scheduling infrastructure and may run with normal platform variation.
 
 ## API routes
 
+### News (existing, unchanged)
+
 - `GET /api/health` — service status (does not reveal secrets)
-- `GET /api/news?limit=50&region=Cambodia&q=bank&priority=RED` — news and summary statistics
+- `GET /api/news?limit=500&region=Cambodia&q=bank&priority=RED` — news and summary statistics
 - `POST /api/refresh` — protected RSS collection; requires `Authorization: Bearer ADMIN_SECRET`
 - `POST /api/telegram/test` — protected test message to the configured chat
 - `POST /api/telegram/webhook` — incoming Telegram updates; protected by webhook secret
+
+### Skill Development (all require authorization)
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| POST | `/api/skills/login` | Exchange the secret for a session cookie |
+| POST | `/api/skills/logout` | Clear the session |
+| GET | `/api/skills/session` | Check authentication |
+| GET | `/api/skills/today` | Today's lesson, routine and session state |
+| GET | `/api/skills/plan` | The full 30-day plan |
+| GET | `/api/skills/lesson?day=N` | One lesson (answer key withheld) |
+| GET | `/api/skills/progress` | Full progress tracker |
+| POST | `/api/skills/progress` | Save lesson completion (idempotent) |
+| POST | `/api/skills/quiz` | Grade a quiz answer |
+| GET/POST | `/api/skills/journal` | Read or save journal entries |
+| GET/POST | `/api/skills/assignments` | Read or save business assignments |
+| GET | `/api/skills/assignments/templates` | Assignment templates |
+| GET/POST | `/api/skills/preferences` | Reminder on/off |
+| GET | `/api/skills/assessment` | 30-day final assessment |
+
+## Skill Development
+
+### Opening it
+
+Go to `YOUR_WORKER_URL/skills.html`, or click **My Skill Development** in the dashboard sidebar.
+You are asked for `ADMIN_SECRET` — the same secret used for the news refresh button. A signed,
+HttpOnly session cookie is then issued for 12 hours.
+
+### How personal data is protected
+
+Every `/api/skills/*` route requires authorization. Two forms are accepted:
+
+1. `Authorization: Bearer <ADMIN_SECRET>` — for scripts and curl.
+2. A signed session cookie from `POST /api/skills/login` — for the browser.
+
+The cookie is HMAC-signed with `ADMIN_SECRET` and never contains the secret, so a stolen cookie
+cannot be escalated back into the admin secret. All SQL uses bound parameters and all input is
+length-capped server-side. Quiz answers are never sent to the browser; they are graded server-side.
+
+### Curriculum seeding
+
+Lesson content lives in `src/skills-data.js`, not in SQL, so it is versioned in one place. On the
+first request after the tables exist, the Worker upserts the 30 lessons using `INSERT OR IGNORE`
+against the `UNIQUE(day)` column, so seeding is idempotent and never duplicates a lesson. Each lesson
+also has an `UPDATE` upsert, so curriculum edits are picked up on the next cold start.
+
+### Progress correctness
+
+All progress is derived from saved rows. Nothing is hardcoded:
+
+- Lesson completion counts distinct completed `learning_sessions` rows.
+- Per-skill percentages come from `GROUP BY skill` over the lesson and session tables.
+- The streak walks backwards day by day from today in Cambodia time.
+- Quiz accuracy uses `COUNT`/`SUM` over `quiz_attempts`.
+
+`UNIQUE(session_date, day)` on `learning_sessions` makes marking the same day complete twice an
+update rather than a duplicate insert. A day only counts as complete when all three routine steps are
+ticked. `reminder_log` has `UNIQUE(kind, sent_date)` so a retried cron cannot double-send a reminder.
+
+Assignment updates only write the fields present in the request, so editing one box never clears the rest.
 
 ## RSS feeds and limitations
 
@@ -239,11 +352,71 @@ and the Worker would start with missing credentials.
 - **Dashboard says preview mode:** `/api/news` may be failing or the database is empty. Open `/api/health` and inspect Worker logs.
 - **Leaked token:** revoke it immediately with BotFather and replace the Cloudflare secret.
 
+## Tests
+
+Two suites. Neither needs a paid service.
+
+### Curriculum integrity (offline, no database)
+
+```bash
+npm run check:curriculum
+```
+
+Validates 5 skills, 30 lessons, unique titles/explanations/examples, the exact day-to-skill rotation,
+6 lessons per skill, 4 quiz options with a valid answer index, answer-index spread, substantive field
+lengths, and absence of HTML tags or placeholders.
+
+**Result: 24/24 passed.**
+
+### API integration (needs a deployed Worker)
+
+```bash
+npm test
+```
+
+Uses `ADMIN_SECRET` from `.dev.vars`, or set `BASE_URL` and `ADMIN_SECRET` in the environment.
+Covers authorization on private routes, session cookie issuing and expiry, curriculum reads, input
+validation (`day=0`, `day=31`, `day=abc`, `day=-5`), idempotent completion, a partial routine not
+counting as complete, quiz grading, journal create/edit, assignment create/partial-update,
+preferences, assessment, and that the existing news API and stored news are unaffected.
+
+**Result: 57/57 passed** against the live deployment with the 354 existing news stories intact.
+
+### Manual checks
+
+1. Open `YOUR_WORKER_URL/api/health` — expect `"ok":true`
+2. Open `YOUR_WORKER_URL/api/skills/today` — expect `401`
+3. Open `YOUR_WORKER_URL/api/skills/plan` with the `Authorization` header — expect 30 lessons
+4. Send `/skills`, `/learn`, `/progress` in Telegram
+5. Open `/skills.html`, sign in, tick the three routine blocks, save, and confirm Progress shows `1/30`
+6. Resize the browser to phone width and confirm the layout still works
+
+## What you must do manually
+
+These cannot be automated:
+
+1. **`npx wrangler login`** — opens a browser to authorize Wrangler.
+2. **Create the Telegram bot** via @BotFather. Use a dedicated bot: Telegram permits one webhook per token, so reusing a token already deployed elsewhere breaks that service.
+3. **Set the four secrets** with `npx wrangler secret put`.
+4. **Register the webhook** once, after the first deploy.
+5. **Send `/start`** to your bot so Telegram can deliver anything.
+6. **Find your numeric chat ID** — send `/start`, then run `node telegram-check.cjs`.
+7. **Enable reminders** — send `/reminder_on`, or use the toggle on the Telegram tab. Reminders do not begin until the cron trigger is deployed *and* this is enabled.
+8. **Push to GitHub** — run `gh auth login` first if the CLI is not authenticated.
+
+## Known limitations
+
+- Single user. There is no per-person login; one shared `ADMIN_SECRET` protects all personal data.
+- Cambodia coverage depends on publishers that permit Cloudflare Workers traffic. Khmer Times and Phnom Penh Post return 403 from Workers, so Cambodia stories arrive via Cambodia Daily and regional feeds.
+- Cambodia Daily publishes in Khmer, so its headlines do not match English priority keywords and usually score GREEN. A `defaultRegion` on the feed keeps them attributed to Cambodia.
+- Priority labels are heuristic triage, not a financial forecast.
+- Cron triggers are approximate and may fire slightly off the minute.
+
 ## Recommended next phase
 
-After this version works, add:
-1. official-source economic indicators,
-2. AI-assisted story analysis using a server-side API key,
-3. weekly Cambodia market report,
-4. user authentication and role-based access,
-5. export to PDF and a searchable opportunity tracker.
+1. Official-source economic indicators (National Bank of Cambodia, MEF, ADB).
+2. AI-assisted story analysis using a server-side API key.
+3. A weekly Cambodia market report.
+4. Real per-user authentication and role-based access.
+5. Export to PDF and a searchable opportunity tracker.
+6. Lessons 31-90 as a second program, reusing the same tables.
