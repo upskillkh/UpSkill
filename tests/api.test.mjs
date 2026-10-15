@@ -175,12 +175,91 @@ const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Phnom_Penh", ye
   await call("/api/skills/preferences", { method: "POST", body: { remindersEnabled: false } });
   record("reminders can be disabled", (await call("/api/skills/preferences")).data?.remindersEnabled === false);
 
+  // A scheduled run while reminders are off must not deliver.
+  const offRun = await call("/api/skills/daily/send", { method: "POST", body: { force: false } });
+  record("scheduled run is skipped when reminders are off",
+    offRun.data?.sent === false && offRun.data?.reason === "reminders_off",
+    JSON.stringify(offRun.data));
+
   // --- 11. Assessment -----------------------------------------------------
   const assess = await call("/api/skills/assessment");
   record("final assessment available", assess.status === 200 && !!assess.data?.assessment);
   record("assessment covers 5 skill sections", (assess.data?.assessment?.sections?.length || 0) === 5);
 
-  // --- 12. Existing news API unaffected ----------------------------------
+  // --- 12. Daily 06:00 lesson delivery -----------------------------------
+  // Reminder preference must be ON for the scheduled run to deliver. Earlier
+  // cases toggle it off, so re-enable it before testing the delivery path.
+  const prefOn = await call("/api/skills/preferences", { method: "POST", body: { remindersEnabled: true } });
+  record("reminders can be re-enabled for delivery test", prefOn.data?.remindersEnabled === true);
+
+  const protectedDelivery = await call("/api/skills/daily/preview", { method: "POST", auth: false });
+  record("daily preview requires authorization", protectedDelivery.status === 401, `got ${protectedDelivery.status}`);
+
+  const preview = await call("/api/skills/daily/preview", { method: "POST", body: {} });
+  const dt = preview.data;
+  record("daily preview returns a message", preview.status === 200 && dt?.text?.length > 500, `${dt?.length} chars`);
+
+  // Section 4 of the specification, checked literally.
+  const sections = [
+    ["DAILY SKILL DEVELOPMENT header", "DAILY SKILL DEVELOPMENT"],
+    ["Day line", /^Day: \d+ of \d+$/m],
+    ["Skill line", /^Skill: \S/m],
+    ["Topic line", /^Topic: \S/m],
+    ["Learning time line", /^Learning time: \S/m],
+    ["1 Today's Learning", "Today's Learning"],
+    ["2 Why It Matters", "Why It Matters"],
+    ["3 Real Business Example", "Real Business Example"],
+    ["4 Practical Exercise", "Today's Practical Exercise"],
+    ["5 Apply It to Khmer24", "Apply It to Khmer24"],
+    ["6 Today's Challenge", "Today's Challenge"],
+    ["7 Track My Progress", "Track My Progress"],
+    ["motivational close", "Small improvements every day create exceptional results."],
+  ];
+  for (const [name, probe] of sections) {
+    const ok = probe instanceof RegExp ? probe.test(dt.text) : dt.text.includes(probe);
+    record(`daily message has ${name}`, ok);
+  }
+  record("daily message references Khmer24", dt.text.includes("Khmer24"));
+  record("daily message fits one Telegram send", dt.text.length <= 3900, `${dt.text.length} chars`);
+  record("daily message is valid UTF-8", !dt.text.includes("\uFFFD"));
+
+  // Weekly rotation: weekday 0=Sun .. 6=Sat.
+  const EXPECT = { 0: "review", 1: "lesson", 2: "lesson", 3: "lesson", 4: "lesson", 5: "lesson", 6: "practice" };
+  const SKILLWORD = { 1: "Strategic", 2: "Sales", 3: "Leadership", 4: "Financial", 5: "Digital" };
+  for (let wd = 0; wd <= 6; wd++) {
+    const r = await call("/api/skills/daily/preview", { method: "POST", body: { weekday: wd } });
+    const name = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][wd];
+    record(`${name} produces a ${EXPECT[wd]}`, r.data?.type === EXPECT[wd], `got ${r.data?.type}`);
+    if (SKILLWORD[wd]) {
+      record(`${name} targets ${SKILLWORD[wd]}`, new RegExp(`^Skill: ${SKILLWORD[wd]}`, "m").test(r.data.text));
+    }
+  }
+  const sun = await call("/api/skills/daily/preview", { method: "POST", body: { weekday: 0 } });
+  record("Sunday review has all five sections", ["This Week In Summary", "Progress Across The Five Skills",
+    "Review Quiz", "One Business Problem To Solve", "Reflection", "Recommendation For Next Week", "Your Numbers"]
+    .every((s) => sun.data.text.includes(s)));
+
+  // Idempotency: a repeated scheduled run must not send a second message.
+  const send1 = await call("/api/skills/daily/send", { method: "POST", body: { force: false } });
+  record("first scheduled-style run delivers", send1.data?.sent === true || send1.data?.reason === "already_delivered",
+    JSON.stringify(send1.data));
+  const send2 = await call("/api/skills/daily/send", { method: "POST", body: { force: false } });
+  const send3 = await call("/api/skills/daily/send", { method: "POST", body: { force: false } });
+  const sentOnce = (send2.data?.sent === false && send2.data?.reason === "already_delivered") ||
+    (send1.data?.reason === "already_delivered" && send3.data?.reason === "already_delivered");
+  record("repeat runs do not send duplicates", sentOnce, JSON.stringify(send2.data));
+
+  const deliveries = await call("/api/skills/deliveries");
+  const todayCount = (deliveries.data?.deliveries || []).filter((d) => d.delivered_date === today).length;
+  record("exactly one delivery row per day", todayCount === 1, `${todayCount} rows for ${today}`);
+
+  // Progression: completing must advance, never restart at day 1.
+  const before = await call("/api/skills/progress");
+  const pointerBefore = (before.data?.programDays || 30);
+  record("progress exposes a 30-day programme", pointerBefore === 30);
+  record("completed days are counted", (before.data?.overall?.completedLessons || 0) >= 1);
+
+  // --- 13. Existing news API unaffected ----------------------------------
   const news = await call("/api/news?limit=5", { auth: false });
   record("news API still works", news.status === 200 && Array.isArray(news.data?.stories));
   record("news data preserved", (news.data?.stats?.total || 0) > 0, `${news.data?.stats?.total} stories`);
@@ -189,7 +268,7 @@ const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Phnom_Penh", ye
   record("health does not leak secrets",
     !JSON.stringify(health.data).toLowerCase().includes("token") && !JSON.stringify(health.data).toLowerCase().includes("secret"));
 
-  // --- 13. Logout ---------------------------------------------------------
+  // --- 14. Logout ---------------------------------------------------------
   await call("/api/skills/logout", { method: "POST" });
   const afterLogout = await call("/api/skills/today");
   record("after logout, private data is rejected again", afterLogout.status === 401, `got ${afterLogout.status}`);

@@ -29,11 +29,14 @@ Everything runs on Cloudflare after deployment. Your computer is only used to de
 
 ### Telegram skill commands
 
-`/skills`, `/learn`, `/lesson 1-30`, `/progress`, `/quiz`, `/practice`, `/journal`, `/reminder_on`, `/reminder_off` — all alongside the existing news commands.
+`/learn`, `/complete`, `/skills`, `/lesson 1-30`, `/progress`, `/quiz`, `/practice`, `/journal`,
+`/reminder_on`, `/reminder_off` — all alongside the existing news commands.
 
 ### Daily learning reminder
 
-Sent at **07:30 Cambodia time** (00:30 UTC). Respects the reminder setting and will not send twice in one day.
+A skill lesson is delivered automatically at **06:00 Cambodia time**. `/reminder_on` and
+`/reminder_off` enable and disable that automatic delivery. See
+[Daily Skill Lesson](#daily-skill-lesson-at-0600-cambodia-time).
 
 ## Architecture
 
@@ -58,6 +61,8 @@ Telegram webhook -> Worker -> D1 -> Telegram Bot API
 | `migrations/0001_init.sql` | News table (original) |
 | `migrations/0002_skills.sql` | Skill Development tables |
 | `migrations/0003_seed_skills.sql` | Seeds the five skills, idempotently |
+| `migrations/0004_skill_delivery.sql` | Daily delivery tracking and reflections |
+| `src/skills-daily.js` | 06:00 lesson, weekly rotation, Sunday review, inline keyboards |
 | `tests/curriculum.test.mjs` | Offline curriculum integrity checks |
 | `tests/api.test.mjs` | Live API integration tests |
 
@@ -203,26 +208,93 @@ To send a Telegram test message, run:
 curl -X POST "YOUR_WORKER_URL/api/telegram/test" -H "Authorization: Bearer YOUR_ADMIN_SECRET"
 ```
 
-## Scheduled reports
+## Daily Skill Lesson at 06:00 Cambodia time
 
-Cloudflare cron uses UTC. Cambodia is UTC+7, so `wrangler.toml` uses:
+A skill lesson is delivered to your Telegram bot automatically every morning. **6:00 AM Cambodia
+(UTC+7) = 23:00 UTC the previous day**, so the cron entry is `23` in the hour field.
 
 ```toml
-crons = ["0,30 0,11 * * *"]
+crons = ["0 0,11,23 * * *"]
 ```
 
 | UTC | Cambodia | What happens |
 | --- | --- | --- |
-| 00:00 | 07:00 | Economic news briefing to Telegram |
-| 00:30 | 07:30 | Daily learning reminder (only if reminders are enabled) |
-| 11:00 | 18:00 | Economic news briefing to Telegram |
+| 00:00 | 07:00 | Economic news briefing |
+| 11:00 | 18:00 | Economic news briefing |
+| 23:00 | 06:00 (next day) | **Daily skill development lesson** |
 
-This is deliberately a **single cron string**. Workers Free allows 5 cron triggers per account, and
-Cloudflare counts strings rather than expanded times, so one expression covers all three Cambodia-time
-slots. The handler branches on `scheduled.scheduledTime`: if the Cambodia-local time is 07:30 it sends
-the learning reminder, otherwise it sends the news briefing.
+The handler converts `scheduled.scheduledTime` to Cambodia local time. If that is 360 minutes past
+local midnight it sends the daily lesson, otherwise it sends the news briefing.
 
-Cron triggers are approximate scheduling infrastructure and may run with normal platform variation.
+### Weekly rotation
+
+| Day | Focus |
+| --- | --- |
+| Monday | Strategic Thinking |
+| Tuesday | Sales & Revenue Growth |
+| Wednesday | Leadership & Management |
+| Thursday | Financial & Data Analysis |
+| Friday | Digital & AI Skills |
+| Saturday | Practical Business Application |
+| Sunday | Weekly review, quiz and reflection |
+
+Selection scans forward from the current programme pointer for the first **uncompleted** lesson of
+that day's skill, wrapping once. Completing a lesson advances the pointer, so the programme never
+restarts at Day 1. Sending a message does **not** advance anything — only `/complete` or the
+**Mark Complete** button does.
+
+### Idempotency and retries
+
+`lesson_deliveries` has `UNIQUE(delivered_date)`. The scheduled run claims that row before sending:
+
+- claim succeeds -> send, then mark `sent`
+- row already `sent` -> skip, return `already_delivered`
+- send fails -> mark `failed` with a truncated error, so a later run retries without ever sending a
+  second message for the same date
+
+Verified: three consecutive scheduled-style runs on the same day produced exactly one message and
+one delivery row.
+
+### Message format
+
+The lesson follows the seven-section structure: Today's Learning, Why It Matters, Real Business
+Example, Today's Practical Exercise, Apply It to Khmer24, Today's Challenge, and Track My Progress,
+closing with the motivational line. Messages are built to fit one Telegram send (about 2,300
+characters) and are split on newlines if they ever exceed 3,900.
+
+### Inline buttons
+
+Lessons carry **✅ Mark Complete**, **🧠 Take Quiz** and **📝 Write Reflection**. Buttons arrive as
+`callback_query`, so the webhook must allow them:
+
+```
+allowed_updates = ["message", "callback_query"]
+```
+
+If you ever re-register the webhook, include that or the buttons will not respond. Button presses
+are only honoured from `ALLOWED_CHAT_ID`, and completion writes through the same validated code path
+as `/complete`, so both update your saved progress identically.
+
+### Testing without waiting until morning
+
+```bash
+# See exactly what would be sent today (does not send)
+curl -X POST "$SITE/api/skills/daily/preview" -H "Authorization: Bearer $ADMIN_SECRET" -d '{}'
+
+# Preview any weekday: 0=Sun 1=Mon ... 6=Sat
+curl -X POST "$SITE/api/skills/daily/preview" -H "Authorization: Bearer $ADMIN_SECRET" -d '{"weekday":0}'
+
+# Really send it now, ignoring today's claim
+curl -X POST "$SITE/api/skills/daily/send" -H "Authorization: Bearer $ADMIN_SECRET" -d '{"force":true}'
+
+# Run exactly as the cron would; safe to repeat
+curl -X POST "$SITE/api/skills/daily/send" -H "Authorization: Bearer $ADMIN_SECRET" -d '{}'
+
+# Inspect delivery history
+curl "$SITE/api/skills/deliveries" -H "Authorization: Bearer $ADMIN_SECRET"
+```
+
+`/learn` in Telegram sends the same daily lesson on demand, so you can always see it before 06:00.
 
 ## API routes
 
@@ -252,6 +324,9 @@ Cron triggers are approximate scheduling infrastructure and may run with normal 
 | GET | `/api/skills/assignments/templates` | Assignment templates |
 | GET/POST | `/api/skills/preferences` | Reminder on/off |
 | GET | `/api/skills/assessment` | 30-day final assessment |
+| POST | `/api/skills/daily/preview` | Render today's lesson without sending (`weekday` override) |
+| POST | `/api/skills/daily/send` | Run the delivery path (`force:true` to re-send) |
+| GET | `/api/skills/deliveries` | Delivery history and failure log |
 
 ## Skill Development
 

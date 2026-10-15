@@ -2,10 +2,12 @@
 import {
   seedCurriculum, getToday, getLesson, getPlan, saveSession, saveQuiz,
   saveJournal, getJournalEntry, listJournal, saveAssignment, listAssignments,
-  getProgress, getAssessment, setPreference, remindersEnabled, ictMinutes,
-  clean, toDay, PROGRAM_DAYS,
+  getProgress, getAssessment, setPreference, ictMinutes, ictDate, ictWeekday,
+  selectDailyLesson, setLastSent, claimDelivery, markDelivered,
+  markDeliveryFailed, remindersEnabled, clean, toDay, PROGRAM_DAYS,
 } from "./skills.js";
-import { handleSkillCommand, handleQuizAnswer, buildReminder, SKILL_HELP } from "./skills-telegram.js";
+import { handleSkillCommand, handleQuizAnswer, handleCallback, SKILL_HELP } from "./skills-telegram.js";
+import { buildDailyLesson, lessonKeyboard, reviewKeyboard } from "./skills-daily.js";
 import { authorize, createToken, sessionCookie, clearCookie } from "./auth.js";
 
 const FEEDS = [
@@ -129,10 +131,10 @@ function classify(title, summary) {
   const priority=score>=5?"RED":score>=4?"ORANGE":score>=3?"YELLOW":"GREEN";
   return {region,category,score,priority};
 }
-function json(data,status=200) {
-  return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
-}
-async function telegram(env, chatId, text) {
+const json = (data,status=200) =>
+  new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
+const SKIP_REPLY = Symbol("skip");
+async function telegram(env, chatId, text, keyboard) {
   if (!env.TELEGRAM_BOT_TOKEN || !chatId) return false;
   const chunks = [];
   let remaining=String(text);
@@ -142,14 +144,30 @@ async function telegram(env, chatId, text) {
     chunks.push(remaining.slice(0,cut)); remaining=remaining.slice(cut).trimStart();
   }
   if(remaining) chunks.push(remaining);
-  for (const chunk of chunks) {
+  for (let i=0;i<chunks.length;i++) {
+    const body={chat_id:chatId,text:chunks[i],disable_web_page_preview:true};
+    // Only the first chunk carries the buttons, so long lessons stay tappable.
+    if(keyboard && i===0) body.reply_markup=keyboard;
     const res=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,{
       method:"POST",headers:{"content-type":"application/json"},
-      body:JSON.stringify({chat_id:chatId,text:chunk,disable_web_page_preview:true})
+      body:JSON.stringify(body)
     });
     if(!res.ok) throw new Error("Telegram sendMessage failed: "+res.status);
   }
   return true;
+}
+
+// Answer an inline button press so the client stops showing a spinner.
+async function answerCallback(env, callbackId, text) {
+  if (!env.TELEGRAM_BOT_TOKEN || !callbackId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
+      method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({callback_query_id:callbackId, text:String(text||"").slice(0,200)})
+    });
+  } catch(e) {
+    console.error("answerCallbackQuery failed", String(e.message||e));
+  }
 }
 async function fetchFeed(url) {
   let lastErr="";
@@ -228,12 +246,43 @@ async function sendScheduledReport(env) {
   await telegram(env,env.ALLOWED_CHAT_ID,await reportText(env));
 }
 
-// Daily learning reminder, fired at 07:30 Cambodia time (00:30 UTC).
-async function sendLearningReminder(env, siteUrl) {
-  if(!env.TELEGRAM_BOT_TOKEN || !env.ALLOWED_CHAT_ID) return;
-  const text=await buildReminder(env, siteUrl);
-  if(!text) return;
-  await telegram(env,env.ALLOWED_CHAT_ID,text);
+// ---------------------------------------------------------------------------
+// Daily skill lesson, sent at 06:00 Cambodia time (23:00 UTC previous day).
+//
+// The delivery date is claimed before sending, so a cron retry or a double fire
+// cannot deliver twice. A failed send is recorded and released for retry rather
+// than silently marked done.
+// ---------------------------------------------------------------------------
+async function sendDailyLesson(env, opts={}) {
+  if(!env.TELEGRAM_BOT_TOKEN || !env.ALLOWED_CHAT_ID) return {sent:false,reason:"telegram_not_configured"};
+  const date = opts.date || ictDate();
+
+  try {
+    await ensureSeeded(env);
+    const forced = !!opts.force;
+    if(!forced && !(await remindersEnabled(env))) return {sent:false,reason:"reminders_off"};
+
+    // Idempotency guard. `force` lets /learn and manual tests bypass today's claim.
+    if(!forced) {
+      const weekday = ictWeekday(new Date());
+      const pick = await selectDailyLesson(env, weekday);
+      const claim = await claimDelivery(env, {...pick, weekday}, date);
+      if(claim==="sent") return {sent:false,reason:"already_delivered",date};
+    }
+
+    const built = await buildDailyLesson(env, {date});
+    const keyboard = built.type==="lesson" ? lessonKeyboard(built.day)
+                    : built.quizDay ? reviewKeyboard(built.quizDay) : undefined;
+
+    await telegram(env, env.ALLOWED_CHAT_ID, built.text, keyboard);
+    if(built.type==="lesson") await setLastSent(env, {day:built.day, type:"lesson"});
+    if(!forced) await markDelivered(env, date);
+    return {sent:true, date, type:built.type, day:built.day||null};
+  } catch(e) {
+    console.error("daily lesson failed", String(e.message||e));
+    if(!opts.force) await markDeliveryFailed(env, e, date).catch(()=>{});
+    return {sent:false, reason:String(e.message||e), date};
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -388,9 +437,9 @@ async function handleSkills(request, env, url) {
 }
 // Telegram delivers to chats the bot cannot reach (wrong id, blocked, kicked).
 // A failed reply must not surface as a non-200, or Telegram retries in a loop.
-async function tryTelegram(env, chatId, text) {
+async function tryTelegram(env, chatId, text, keyboard) {
   try {
-    await telegram(env, chatId, text);
+    await telegram(env, chatId, text, keyboard);
   } catch (e) {
     console.error("telegram reply failed for chat", chatId, String(e.message || e));
   }
@@ -424,6 +473,30 @@ async function handleTelegram(request, env) {
     if(provided!==env.TELEGRAM_WEBHOOK_SECRET) return new Response("Forbidden",{status:403});
   }
   const update=await request.json();
+
+  // Inline button presses arrive as callback_query, not message.
+  const press=update.callback_query;
+  if(press) {
+    if(!env.ALLOWED_CHAT_ID || String(press.message?.chat?.id)!==String(env.ALLOWED_CHAT_ID)) {
+      await answerCallback(env, press.id, "This bot is private.");
+      return json({ok:true});
+    }
+    try {
+      await ensureSeeded(env);
+      const result=await handleCallback(env, press.data);
+      if(result) {
+        await answerCallback(env, press.id, result.alert||"Done");
+        if(result.text) await tryTelegram(env, String(press.message.chat.id), result.text);
+      } else {
+        await answerCallback(env, press.id, "Unknown action");
+      }
+    } catch(e) {
+      console.error("callback failed", String(press.data), String(e.message||e));
+      await answerCallback(env, press.id, "Something went wrong. Try again.");
+    }
+    return json({ok:true});
+  }
+
   const message=update.message||update.edited_message;
   if(!message?.text || !message.chat?.id) return json({ok:true});
   const chatId=String(message.chat.id);
@@ -438,7 +511,7 @@ async function handleTelegram(request, env) {
   const parts=message.text.trim().split(/\s+/);
   const command=parts[0].split("@")[0].toLowerCase();
   const arg=parts.slice(1).join(" ");
-  let reply="";
+  let reply=SKIP_REPLY;
   if(command==="/start" || command==="/help") {
     reply="👋 Welcome to Economic Intelligence.\n\nNEWS\n/today — latest business intelligence\n/cambodia — Cambodia-focused stories\n/asean — ASEAN stories\n/global — global stories\n/opportunities — business opportunity prompts\n/refresh — collect new RSS stories\n\n"+SKILL_HELP;
   } else if(command==="/today") reply=await reportText(env);
@@ -456,17 +529,22 @@ async function handleTelegram(request, env) {
     // problem must not break the existing news commands.
     try {
       await ensureSeeded(env);
-      reply = await handleSkillCommand(env, command, arg);
-      if (reply === null && /^[1-4]$/.test(message.text.trim())) {
+      const result = await handleSkillCommand(env, command, arg);
+      if (result) {
+        reply = result.text;
+        await tryTelegram(env, chatId, reply, result.keyboard);
+      } else if (/^[1-4]$/.test(message.text.trim())) {
         reply = await handleQuizAnswer(env, message.text.trim());
+        if (reply === null) reply="I don't recognize that command. Send /help to see available commands.";
+      } else {
+        reply = "I don't recognize that command. Send /help to see available commands.";
       }
     } catch (e) {
       console.error("skill command failed", command, String(e.message || e));
       reply = "⚠️ The skill module hit a problem. Try again in a moment.";
     }
-    if (reply === null) reply="I don't recognize that command. Send /help to see available commands.";
   }
-  await tryTelegram(env,chatId,reply);
+  if (reply !== SKIP_REPLY) await tryTelegram(env,chatId,reply);
   return json({ok:true});
 }
 export default {
@@ -497,6 +575,31 @@ export default {
         await telegram(env,env.ALLOWED_CHAT_ID,"✅ Economic Intelligence website connected to Telegram.");
         return json({ok:true});
       }
+      if(url.pathname==="/api/skills/daily/preview" && request.method==="POST") {
+        const auth=await authorize(request,env);
+        if(!auth.ok) return json({error:"Unauthorized"},401);
+        await ensureSeeded(env);
+        const body=await readBody(request);
+        // weekday 0=Sun..6=Sat lets Saturday and Sunday be tested on any day.
+        const wd=Number.parseInt(body.weekday,10);
+        const built=await buildDailyLesson(env,{weekday:Number.isInteger(wd)?wd:undefined});
+        return json({ok:true,type:built.type,day:built.day||null,length:built.text.length,text:built.text});
+      }
+      if(url.pathname==="/api/skills/daily/send" && request.method==="POST") {
+        const auth=await authorize(request,env);
+        if(!auth.ok) return json({error:"Unauthorized"},401);
+        const body=await readBody(request);
+        // force=true bypasses today's claim so the message can be re-tested.
+        const force=body.force===true||body.force==="true"||body.force===1;
+        const result=await sendDailyLesson(env,{force, date:body.date});
+        return json(result, 200);
+      }
+      if(url.pathname==="/api/skills/deliveries" && request.method==="GET") {
+        const auth=await authorize(request,env);
+        if(!auth.ok) return json({error:"Unauthorized"},401);
+        const {results}=await env.DB.prepare(`SELECT * FROM lesson_deliveries ORDER BY delivered_date DESC LIMIT 30`).all();
+        return json({deliveries:results||[]});
+      }
       if(url.pathname.startsWith("/api/skills")) return await handleSkills(request, env, url);
       if(url.pathname.startsWith("/api/")) return json({error:"Not found"},404);
       return env.ASSETS.fetch(request);
@@ -505,13 +608,14 @@ export default {
     }
   },
   async scheduled(event,env,ctx) {
-    // One cron string covers three Cambodia-time slots:
-    //   0,30 0,11 * * *  ->  00:00, 00:30, 11:00 UTC
-    //                      ->  07:00, 07:30, 18:00 Asia/Phnom_Penh
-    // Kept as a single expression so it consumes one cron slot on the account.
+    // One cron string covers three Cambodia-time slots, keeping this Worker at a
+    // single cron slot on the account (Workers Free allows 5 per account):
+    //   0 0,11,23 * * *  ->  00:00, 11:00, 23:00 UTC
+    //                     ->  07:00, 18:00, and 06:00 next day Asia/Phnom_Penh
     const when=new Date(event.scheduledTime);
     const minutes=ictMinutes(when);
-    if(minutes===450) ctx.waitUntil(sendLearningReminder(env,env.SITE_URL));
+    // 23:00 UTC + 7h = 06:00 Cambodia = 360 minutes past local midnight.
+    if(minutes===360) ctx.waitUntil(sendDailyLesson(env));
     else ctx.waitUntil(sendScheduledReport(env));
   }
 };

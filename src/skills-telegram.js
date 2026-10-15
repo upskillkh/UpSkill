@@ -1,13 +1,15 @@
 // Telegram formatting for the Skill Development module.
-// Produces the same `command -> reply text` shape as the existing news commands
-// so worker.js can dispatch both through one handler.
+// Handlers return { text, keyboard } so worker.js can attach an inline keyboard,
+// or { text, alert } for a callback query reply.
 
 import {
   getToday, getLesson, getProgress, listAssignments, getJournalEntry,
   getPreference, setPreference, remindersEnabled, saveQuiz, claimReminder,
+  completeLesson, getLastSent, setLastSent, saveReflection, deliveryStats,
   ictDate, ictStamp, PROGRAM_DAYS,
 } from "./skills.js";
 import { ASSIGNMENTS } from "./skills-data.js";
+import { buildDailyLesson, lessonKeyboard, reviewKeyboard, MOTIVATION } from "./skills-daily.js";
 
 const MAX = 3800;
 
@@ -15,6 +17,25 @@ function clip(text, max = 140) {
   const s = String(text || "").replace(/\s+/g, " ").trim();
   return s.length > max ? s.slice(0, max - 1) + "…" : s;
 }
+
+function meter(pct) {
+  const filled = Math.round(Math.max(0, Math.min(100, pct || 0)) / 10);
+  return "[" + "█".repeat(filled) + "░".repeat(10 - filled) + "]";
+}
+
+export const SKILL_HELP =
+  "🎓 SKILL DEVELOPMENT\n\n" +
+  "/learn — today's lesson now\n" +
+  "/complete — mark today's lesson complete\n" +
+  "/skills — my five skills and progress\n" +
+  "/lesson 7 — open a lesson by day (1-30)\n" +
+  "/progress — full progress tracker\n" +
+  "/quiz — short quiz on today's topic\n" +
+  "/practice — practical business assignment\n" +
+  "/journal — today's reflection guide\n" +
+  "/reminder_on — daily 06:00 lessons\n" +
+  "/reminder_off — stop daily lessons\n\n" +
+  "News: /today /cambodia /asean /global /opportunities /refresh";
 
 function lessonBlock(l, { withQuiz = false } = {}) {
   const out = [
@@ -46,49 +67,56 @@ function lessonBlock(l, { withQuiz = false } = {}) {
   return out.join("\n");
 }
 
-export const SKILL_HELP =
-  "🎓 SKILL DEVELOPMENT\n\n" +
-  "/skills — my five skills and progress\n" +
-  "/learn — today's 30-minute lesson\n" +
-  "/lesson 7 — open a lesson by day (1-30)\n" +
-  "/progress — full progress tracker\n" +
-  "/quiz — short quiz on today's topic\n" +
-  "/practice — practical business assignment\n" +
-  "/journal — record today's reflection\n" +
-  "/reminder_on — daily 07:30 reminders\n" +
-  "/reminder_off — stop reminders\n\n" +
-  "News commands: /today /cambodia /asean /global /opportunities /refresh";
-
-/** Handle a skill command. Returns reply text, or null if not a skill command. */
+/** Handle a skill command. Returns { text, keyboard } or null if not a skill command. */
 export async function handleSkillCommand(env, command, arg) {
   switch (command) {
     case "/skills":
-      return await skillsOverview(env);
-    case "/learn":
-      return await todayLesson(env);
+      return { text: await skillsOverview(env) };
+    case "/learn": {
+      const built = await buildDailyLesson(env);
+      if (built.type === "lesson") {
+        await setLastSent(env, { day: built.day, type: "lesson" });
+        return { text: built.text, keyboard: lessonKeyboard(built.day) };
+      }
+      return { text: built.text, keyboard: built.quizDay ? reviewKeyboard(built.quizDay) : undefined };
+    }
+    case "/complete":
+      return { text: await doComplete(env) };
     case "/lesson": {
       const n = Number.parseInt(arg, 10);
       if (!Number.isInteger(n) || n < 1 || n > PROGRAM_DAYS) {
-        return `📘 Which day?\nUse /lesson 1 to /lesson ${PROGRAM_DAYS}.\nExample: /lesson 7`;
+        return { text: `📘 Which day?\nUse /lesson 1 to /lesson ${PROGRAM_DAYS}.\nExample: /lesson 7` };
       }
       const lesson = await getLesson(env, n);
-      if (!lesson) return `Day ${n} is not available yet. Use /lesson 1 to /lesson ${PROGRAM_DAYS}.`;
-      return lessonBlock(lesson, { withQuiz: true });
+      if (!lesson) return { text: `Day ${n} is not available yet. Use /lesson 1 to /lesson ${PROGRAM_DAYS}.` };
+      await setLastSent(env, { day: n, type: "lesson" });
+      return { text: lessonBlock(lesson, { withQuiz: true }), keyboard: lessonKeyboard(n) };
     }
     case "/progress":
-      return await progressReport(env);
+      return { text: await progressReport(env) };
     case "/quiz":
-      return await startQuiz(env);
+      return { text: await startQuiz(env) };
     case "/practice":
-      return await practiceAssignment(env);
+      return { text: await practiceAssignment(env) };
     case "/journal":
-      return await journalPrompt(env);
+      return { text: await journalPrompt(env) };
     case "/reminder_on":
       await setPreference(env, "reminders_enabled", "1");
-      return "🔔 Daily reminders ON.\n\nYou will get a short learning prompt every day at 07:30 Cambodia time.\nIt tells you the skill, the lesson, and why it matters.\n\nTurn it off any time with /reminder_off.";
+      return {
+        text:
+          "🔔 Daily lessons ON.\n\n" +
+          "Every morning at 06:00 Cambodia time you will get a lesson covering one of the five skills, " +
+          "with a practical exercise and one way to apply it at Khmer24.\n\n" +
+          "Turn it off any time with /reminder_off.",
+      };
     case "/reminder_off":
       await setPreference(env, "reminders_enabled", "0");
-      return "🔕 Daily reminders OFF.\n\nYour progress is still saved. Turn reminders back on with /reminder_on.";
+      return {
+        text:
+          "🔕 Daily lessons OFF.\n\n" +
+          "No more automatic morning messages. Your progress is still saved.\n" +
+          "You can still use /learn any time.\n\nTurn back on with /reminder_on.",
+      };
     default:
       return null;
   }
@@ -105,24 +133,111 @@ export async function handleQuizAnswer(env, text) {
   const result = await saveQuiz(env, { day: Number(pending), chosen: n - 1 });
   return (
     (result.correct ? "✅ Correct.\n\n" : "❌ Not quite.\n\n") +
-    `💡 ${result.explain}\n\n` +
-    `Progress on day ${result.day} quiz is recorded.`
+    `💡 ${result.explain}\n\nProgress on day ${result.day} quiz is recorded.`
   );
+}
+
+async function doComplete(env) {
+  const last = await getLastSent(env);
+  if (!last.day) {
+    return "Nothing to mark yet.\n\nSend /learn first, then /complete when you finish the lesson.";
+  }
+  const result = await completeLesson(env, last.day);
+  const p = await getProgress(env);
+  return [
+    `✅ Marked complete — Day ${result.day}: ${result.title}`,
+    ``,
+    `Programme now at ${p.overall.completedLessons}/${p.overall.totalLessons} lessons (${p.overall.percent}%).`,
+    p.overall.currentStreak > 0 ? `🔥 Streak: ${p.overall.currentStreak} day(s).` : "",
+    ``,
+    `Tomorrow's lesson arrives automatically at 06:00 Cambodia time.`,
+    `Want to reflect? Send /journal.`,
+  ].filter(Boolean).join("\n");
+}
+
+/** Handle a Telegram inline button press. Returns { text, alert } or null. */
+export async function handleCallback(env, data) {
+  const [action, raw] = String(data || "").split(":");
+  const day = Number.parseInt(raw, 10);
+
+  if (action === "done") {
+    if (!Number.isInteger(day) || day < 1 || day > PROGRAM_DAYS) return null;
+    const result = await completeLesson(env, day);
+    const p = await getProgress(env);
+    return {
+      alert: `Day ${result.day} complete! ${p.overall.percent}% of the programme done.`,
+      text: [
+        `✅ Marked complete — Day ${result.day}: ${result.title}`,
+        ``,
+        `Programme now at ${p.overall.completedLessons}/${p.overall.totalLessons} lessons (${p.overall.percent}%).`,
+        p.overall.currentStreak > 0 ? `🔥 Streak: ${p.overall.currentStreak} day(s).` : "",
+        ``,
+        `Next lesson arrives automatically at 06:00 Cambodia time.`,
+      ].filter(Boolean).join("\n"),
+    };
+  }
+
+  if (action === "quiz") {
+    const target = Number.isInteger(day) && day >= 1 && day <= PROGRAM_DAYS ? day : 1;
+    const lesson = await getLesson(env, target);
+    if (!lesson) return null;
+    await setPreference(env, "pending_quiz_day", String(target));
+    return {
+      alert: "Quiz sent",
+      text: [
+        `🧠 QUIZ — Day ${lesson.day}`,
+        lesson.title,
+        ``,
+        lesson.quiz.question,
+        ``,
+        lesson.quiz.options.map((o, i) => `   ${i + 1}. ${o}`).join("\n"),
+        ``,
+        `Reply with just the number, like: 2`,
+      ].join("\n"),
+    };
+  }
+
+  if (action === "reflect") {
+    await saveReflection(env, {
+      date: ictDate(),
+      day: Number.isInteger(day) && day > 0 ? day : null,
+      prompt: "What did you learn today, and what will you do differently tomorrow?",
+      body: "",
+    }, "telegram");
+    return {
+      alert: "Reflection started",
+      text: [
+        `📝 Today's Reflection — ${ictDate()}`,
+        ``,
+        `Answer these two questions, then add the full write-up on the website:`,
+        `Skill Development → Learning Journal.`,
+        ``,
+        `1. What did you learn today?`,
+        `2. What did you apply at work, and what happened?`,
+        ``,
+        `One honest sentence is worth more than a long paragraph.`,
+      ].join("\n"),
+    };
+  }
+
+  return null;
 }
 
 async function skillsOverview(env) {
   const p = await getProgress(env);
+  const deliveries = await deliveryStats(env);
   const lines = [
     "🎓 MY SKILL DEVELOPMENT",
     ictStamp(),
     "",
     `Overall: ${p.overall.completedLessons}/${p.overall.totalLessons} lessons (${p.overall.percent}%)`,
     `🔥 Streak: ${p.overall.currentStreak} day${p.overall.currentStreak === 1 ? "" : "s"}`,
+    `⏱ Study time: ${p.overall.totalMinutes} min`,
+    `📬 Lessons sent: ${deliveries.sent || 0}`,
     "",
   ];
   for (const s of p.bySkill) {
-    const bar = meter(s.percent);
-    lines.push(`${s.icon} ${s.name}`, `   ${bar} ${s.percent}%  (${s.completedLessons}/${s.totalLessons})`);
+    lines.push(`${s.icon} ${s.name}`, `   ${meter(s.percent)} ${s.percent}%  (${s.completedLessons}/${s.totalLessons})`);
     if (s.nextLesson) lines.push(`   Next: Day ${s.nextLesson.day} — ${clip(s.nextLesson.title, 60)}`);
     lines.push("");
   }
@@ -132,25 +247,9 @@ async function skillsOverview(env) {
   return lines.join("\n").slice(0, MAX);
 }
 
-function meter(pct) {
-  const filled = Math.round(pct / 10);
-  return "[" + "█".repeat(filled) + "░".repeat(10 - filled) + "]";
-}
-
-async function todayLesson(env) {
-  const t = await getToday(env);
-  if (!t.lesson) return "No lesson is available yet. Open the website to finish setup.";
-  const head = [
-    `📅 ${t.date} — Day ${t.day} of ${PROGRAM_DAYS}`,
-    `Skill: ${t.skill?.name || t.lesson.skill}`,
-    t.isCatchUp ? "✅ You finished the 30-day plan. Reviewing the final lesson." : "",
-    "",
-  ].filter(Boolean);
-  return (head.join("\n") + lessonBlock(t.lesson, { withQuiz: true })).slice(0, MAX);
-}
-
 async function progressReport(env) {
   const p = await getProgress(env);
+  const deliveries = await deliveryStats(env);
   const lines = [
     "📊 LEARNING PROGRESS",
     ictStamp(),
@@ -162,12 +261,12 @@ async function progressReport(env) {
     `🧠 Quizzes: ${p.overall.quizCorrect}/${p.overall.quizAttempts} correct (${p.overall.quizAccuracy}%)`,
     `💼 Assignments completed: ${p.overall.completedAssignments}`,
     `📓 Journal entries: ${p.overall.journalEntries}`,
+    `📬 Automatic lessons delivered: ${deliveries.sent || 0}` +
+      (deliveries.last_delivery ? `\n🕐 Last delivery: ${deliveries.last_delivery}` : ""),
     "",
     "By skill:",
   ];
-  for (const s of p.bySkill) {
-    lines.push(`   ${s.icon} ${s.name}: ${s.percent}%`);
-  }
+  for (const s of p.bySkill) lines.push(`   ${s.icon} ${s.name}: ${s.percent}%`);
   const week = p.weekly.filter((d) => d.completed > 0);
   if (week.length) {
     lines.push("", "This week:", ...week.map((d) => `   ${d.label}: ${d.completed} lesson${d.completed === 1 ? "" : "s"}`));
@@ -180,12 +279,13 @@ async function progressReport(env) {
 
 async function startQuiz(env) {
   const t = await getToday(env);
-  if (!t.lesson) return "No quiz available yet. Use /learn first.";
-  await setPreference(env, "pending_quiz_day", String(t.lesson.day));
-  const q = t.lesson.quiz;
+  const target = t.lesson?.day || 1;
+  const lesson = await getLesson(env, target);
+  if (!lesson) return "Your curriculum is not loaded yet. Open the website once to initialise it.";
+  await setPreference(env, "pending_quiz_day", String(target));
   return (
-    `🧠 QUIZ — Day ${t.lesson.day}\n${t.lesson.title}\n\n${q.question}\n\n` +
-    q.options.map((o, i) => `   ${i + 1}. ${o}`).join("\n") +
+    `🧠 QUIZ — Day ${lesson.day}\n${lesson.title}\n\n${lesson.quiz.question}\n\n` +
+    lesson.quiz.options.map((o, i) => `   ${i + 1}. ${o}`).join("\n") +
     "\n\nReply with just the number, like: 2"
   ).slice(0, MAX);
 }
@@ -193,16 +293,12 @@ async function startQuiz(env) {
 async function practiceAssignment(env) {
   const done = await listAssignments(env);
   const bySkill = new Map();
-  for (const a of done) {
-    if (!bySkill.has(a.skill)) bySkill.set(a.skill, 0);
-    bySkill.set(a.skill, bySkill.get(a.skill) + 1);
-  }
-  // Offer the least-used skill so the rotation stays balanced.
+  for (const a of done) bySkill.set(a.skill, (bySkill.get(a.skill) || 0) + 1);
   const order = ["strategic", "sales", "leadership", "financial", "digital"];
   const skillKey = order.reduce((best, k) => ((bySkill.get(k) || 0) < (bySkill.get(best) || 0) ? k : best), order[0]);
   const a = ASSIGNMENTS.find((x) => x.skill === skillKey) || ASSIGNMENTS[0];
 
-  const lines = [
+  return [
     `💼 APPLY TO MY BUSINESS`,
     `Skill: ${a.title}`,
     "",
@@ -213,9 +309,8 @@ async function practiceAssignment(env) {
     "",
     `📎 Evidence: ${a.evidence}`,
     "",
-    "Record your work on the website under Skill Development → Apply to My Business.",
-  ];
-  return lines.join("\n").slice(0, MAX);
+    "Record your work on the website → Skill Development → Apply to My Business.",
+  ].join("\n").slice(0, MAX);
 }
 
 async function journalPrompt(env) {
@@ -223,12 +318,18 @@ async function journalPrompt(env) {
   const entry = await getJournalEntry(env, date);
   const lines = [`📓 TODAY'S REFLECTION — ${date}`, ""];
   if (entry && (entry.learned || entry.applied)) {
-    lines.push("You already wrote today. Current entry:", "", `Learned: ${clip(entry.learned, 200)}`, `Applied: ${clip(entry.applied, 200)}`, "");
-    lines.push("Edit or extend it on the website → Skill Development → Learning Journal.");
+    lines.push(
+      "You already wrote today:",
+      "",
+      `Learned: ${clip(entry.learned, 200)}`,
+      `Applied: ${clip(entry.applied, 200)}`,
+      "",
+      "Edit or extend it on the website → Skill Development → Learning Journal."
+    );
     return lines.join("\n").slice(0, MAX);
   }
   lines.push(
-    "Answer these five questions on the website, or write them here and keep a copy:",
+    "Answer these on the website, or write them here and keep a copy:",
     "",
     "1. What did I learn today?",
     "2. What did I apply at work?",
@@ -241,29 +342,13 @@ async function journalPrompt(env) {
   return lines.join("\n").slice(0, MAX);
 }
 
-/** 07:30 Cambodia daily reminder. Returns the text, or null if it should not send. */
+/**
+ * 06:00 Cambodia daily lesson, sent by cron or by a manual trigger.
+ * Claims the date first so a repeated run can never send twice.
+ */
 export async function buildReminder(env, siteUrl) {
   if (!(await remindersEnabled(env))) return null;
-  const today = ictDate();
-  if (!(await claimReminder(env, "learning", today))) return null;
-
-  const t = await getToday(env);
-  if (!t.lesson) return null;
-
-  return (
-    `⏰ 30-MINUTE LEARNING REMINDER\n` +
-    `Skill: ${t.skill?.name || t.lesson.skill}\n` +
-    `Day ${t.day}: ${t.lesson.title}\n\n` +
-    `🎯 ${t.lesson.objective}\n\n` +
-    `Why it matters: this is a ${PROGRAM_DAYS}-day plan across five business skills. ` +
-    `Skipping days is what stops the habit forming, and ${t.lesson.title} builds directly on earlier lessons.\n\n` +
-    `Do this in 30 minutes:\n` +
-    `   10 min — read the lesson\n` +
-    `   10 min — do the exercise\n` +
-    `   10 min — apply one thing at work\n\n` +
-    `Open: ${siteUrl || "your Skill Development page"}\n` +
-    `Or send /learn to get it in Telegram.`
-  ).slice(0, MAX);
+  return null; // superseded by the 06:00 daily lesson
 }
 
 export async function reminderStatus(env) {

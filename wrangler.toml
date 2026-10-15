@@ -14,13 +14,16 @@ database_id = "cdaf1c1d-5365-4184-b013-6e09acd1330c"
 migrations_dir = "migrations"
 
 [triggers]
-# One cron string covers three Cambodia-time slots, which keeps this Worker at
-# a single cron slot on the account (Workers Free allows 5 per account):
-#   0,30 0,11 * * *  ->  00:00, 00:30 and 11:00 UTC
-#                     ->  07:00, 07:30 and 18:00 Asia/Phnom_Penh (UTC+7)
-# 07:00 and 18:00 send the economic news briefing.
-# 07:30 sends the daily learning reminder (if the user enabled it).
-crons = ["0,30 0,11 * * *"]
+# One cron string covers three Cambodia-time slots, keeping this Worker at a
+# single cron slot on the account (Workers Free allows 5 per account).
+# Cambodia is UTC+7:
+#   00:00 UTC -> 07:00 Cambodia  economic news briefing
+#   11:00 UTC -> 18:00 Cambodia  economic news briefing
+#   23:00 UTC -> 06:00 Cambodia (next day) daily skill development lesson
+# The handler branches on scheduled.scheduledTime: 360 Cambodia-local minutes
+# (06:00) sends the daily lesson, everything else sends the news briefing.
+# The previous 07:30 reminder was removed; the 06:00 lesson supersedes it.
+crons = ["0 0,11,23 * * *"]
 
 [vars]
 APP_NAME = "Economic Intelligence"
