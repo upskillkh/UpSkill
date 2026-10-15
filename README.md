@@ -183,7 +183,7 @@ The schedule is configured in `wrangler.toml`. Cron triggers are approximate sch
 
 ## RSS feeds and limitations
 
-The collector attempts feeds from Khmer Times, CNA, CNBC, Nikkei Asia, World Bank blogs, and IMF news. Feed URLs and access policies can change. A failed feed is skipped; other feeds continue. Some publishers may block automated requests. Always open the original source and verify significant claims. Priority labels are heuristic triage, not a financial forecast or factual rating of the publisher.
+The collector attempts feeds from Khmer Times, CNA, CNBC (World and Finance), Nikkei Asia, ASEAN Briefing, and The Thaiger. Feed URLs and access policies change over time; a failed feed is skipped and the others continue. Some publishers block requests by source IP rather than by user agent, which code cannot work around: **Khmer Times currently returns HTTP 403 to Cloudflare Workers**, so Cambodia-specific coverage is limited until it is reachable. Always open the original source and verify significant claims. Priority labels are heuristic triage, not a financial forecast or factual rating of the publisher.
 
 This starter does not include paid news APIs, paid AI analysis, user login, or a public multi-user admin panel. These can be added later. Do not add a private bot token to frontend code.
 

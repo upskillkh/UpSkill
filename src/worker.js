@@ -4,9 +4,14 @@ const FEEDS = [
   {name:"CNBC World", url:"https://www.cnbc.com/id/100727362/device/rss/rss.html"},
   {name:"CNBC Finance", url:"https://www.cnbc.com/id/10000664/device/rss/rss.html"},
   {name:"Nikkei Asia", url:"https://asia.nikkei.com/rss/feed/nar"},
-  {name:"World Bank Blogs", url:"https://blogs.worldbank.org/en/feed"},
-  {name:"IMF News", url:"https://www.imf.org/en/News/RSS"}
+  {name:"ASEAN Briefing", url:"https://www.aseanbrief.com/feed/"},
+  {name:"The Thaiger", url:"https://thethaiger.com/feed/"}
 ];
+
+// Some publishers reject obvious bot agents. Retry once with a browser agent
+// before treating a feed as failed, since several also gate on egress IP.
+const FEED_UA = "EconomicIntelligenceBot/1.0 (+RSS reader)";
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
 const REGION_TERMS = {
   Cambodia:["cambodia","khmer","phnom penh","siem reap","riel"],
@@ -96,15 +101,25 @@ async function telegram(env, chatId, text) {
   }
   return true;
 }
+async function fetchFeed(url) {
+  let lastErr="";
+  for (const ua of [FEED_UA, BROWSER_UA]) {
+    try {
+      const response=await fetch(url,{headers:{"user-agent":ua},signal:AbortSignal.timeout(9000)});
+      if(!response.ok) throw new Error("HTTP "+response.status);
+      return await response.text();
+    } catch(e) { lastErr=String(e.message||e); }
+  }
+  throw new Error(lastErr);
+}
 async function collect(env) {
   const now=new Date().toISOString();
   let added=0, failed=[];
   for (const feed of FEEDS) {
     try {
-      const response=await fetch(feed.url,{headers:{"user-agent":"EconomicIntelligenceBot/1.0 (+RSS reader)"},signal:AbortSignal.timeout(9000)});
-      if(!response.ok) throw new Error("HTTP "+response.status);
-      const xml=await response.text();
+      const xml=await fetchFeed(feed.url);
       const stories=parseFeed(xml,feed.name).slice(0,18);
+      if(!stories.length) { failed.push(feed.name+": no parsable items"); continue; }
       for(const s of stories) {
         const cls=classify(s.title,s.summary);
         const result=await env.DB.prepare(`INSERT OR IGNORE INTO stories
@@ -150,6 +165,15 @@ async function sendScheduledReport(env) {
   await collect(env);
   await telegram(env,env.ALLOWED_CHAT_ID,await reportText(env));
 }
+// Telegram delivers to chats the bot cannot reach (wrong id, blocked, kicked).
+// A failed reply must not surface as a non-200, or Telegram retries in a loop.
+async function tryTelegram(env, chatId, text) {
+  try {
+    await telegram(env, chatId, text);
+  } catch (e) {
+    console.error("telegram reply failed for chat", chatId, String(e.message || e));
+  }
+}
 async function handleTelegram(request, env) {
   if(!env.TELEGRAM_BOT_TOKEN) return json({error:"Telegram bot is not configured"},503);
   if(env.TELEGRAM_WEBHOOK_SECRET) {
@@ -161,11 +185,11 @@ async function handleTelegram(request, env) {
   if(!message?.text || !message.chat?.id) return json({ok:true});
   const chatId=String(message.chat.id);
   if(!env.ALLOWED_CHAT_ID) {
-    await telegram(env,chatId,"This bot is not configured yet. The owner must set ALLOWED_CHAT_ID first.");
+    await tryTelegram(env,chatId,"This bot is not configured yet. The owner must set ALLOWED_CHAT_ID first.");
     return json({ok:true});
   }
   if(chatId!==String(env.ALLOWED_CHAT_ID)) {
-    await telegram(env,chatId,"This bot is private. Ask the owner to authorize your chat ID.");
+    await tryTelegram(env,chatId,"This bot is private. Ask the owner to authorize your chat ID.");
     return json({ok:true});
   }
   const command=message.text.trim().split(/\s+/)[0].split("@")[0].toLowerCase();
@@ -183,7 +207,7 @@ async function handleTelegram(request, env) {
     const r=await collect(env);
     reply=`🔄 Collection finished.\nNew stories: ${r.added}\nFeeds checked: ${r.checked}\nFailed feeds: ${r.failed.length}\nUse /today to view the latest report.`;
   } else reply="I don't recognize that command. Send /help to see available commands.";
-  await telegram(env,chatId,reply);
+  await tryTelegram(env,chatId,reply);
   return json({ok:true});
 }
 export default {
