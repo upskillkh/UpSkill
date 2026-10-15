@@ -10,7 +10,7 @@ not_found_handling = "single-page-application"
 [[d1_databases]]
 binding = "DB"
 database_name = "economic-intelligence-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "cdaf1c1d-5365-4184-b013-6e09acd1330c"
 migrations_dir = "migrations"
 
 [triggers]
