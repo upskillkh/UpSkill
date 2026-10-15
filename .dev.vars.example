@@ -1,0 +1,5 @@
+# Copy to .dev.vars for local development only. Never commit real secrets.
+TELEGRAM_BOT_TOKEN=
+ALLOWED_CHAT_ID=
+TELEGRAM_WEBHOOK_SECRET=
+ADMIN_SECRET=

@@ -1,0 +1,11 @@
+Economic Intelligence Cloudflare Project
+
+.dev.vars.example
+.gitignore
+DEPLOY_CHECKLIST.md
+README.md
+migrations/0001_init.sql
+package.json
+public/index.html
+src/worker.js
+wrangler.toml

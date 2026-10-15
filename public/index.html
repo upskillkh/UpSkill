@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101b2d">
+<title>Economic Intelligence | Cambodia · ASEAN · Global</title>
+<style>
+:root{--bg:#f3f6fb;--panel:#fff;--ink:#172338;--muted:#6f7b8f;--line:#e3e9f2;--navy:#101b2d;--blue:#2563eb;--teal:#0f9f91;--red:#c83f4d;--orange:#c87513;--yellow:#9a7811;--green:#13836c;--shadow:0 8px 30px #1723380b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select{font:inherit}button{cursor:pointer}.layout{min-height:100vh;display:grid;grid-template-columns:246px 1fr}.sidebar{background:var(--navy);color:#fff;padding:25px 17px;display:flex;flex-direction:column;gap:27px}.brand{display:flex;align-items:center;gap:11px;padding:0 8px}.brand-mark{width:39px;height:39px;border-radius:12px;background:linear-gradient(135deg,#4c8dff,#23c6aa);display:grid;place-items:center;font-size:20px;font-weight:900}.brand strong{display:block;font-size:15px;letter-spacing:.2px}.brand small{color:#9eacc3;font-size:11px}.nav-label{color:#8291aa;text-transform:uppercase;letter-spacing:1.5px;font-size:10px;font-weight:800;padding:0 12px}.nav{display:grid;gap:5px}.nav button{border:0;background:transparent;color:#c3ccdb;text-align:left;padding:11px 12px;border-radius:10px;display:flex;align-items:center;gap:12px}.nav button.active,.nav button:hover{background:#26364f;color:#fff}.nav .ico{width:19px;text-align:center;font-size:17px}.side-note{margin-top:auto;background:#1b2b43;border:1px solid #31415a;border-radius:14px;padding:15px;color:#c8d2e1;font-size:12px}.side-note b{color:white;display:block;margin-bottom:5px}.main{min-width:0;padding:27px clamp(16px,3vw,38px) 40px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:27px}.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:1.6px;color:var(--blue);font-weight:800}.topbar h1{margin:3px 0 0;font-size:clamp(24px,3vw,32px);letter-spacing:-1px}.top-actions{display:flex;align-items:center;gap:10px}.date-chip,.status-chip{border:1px solid var(--line);background:white;padding:9px 12px;border-radius:10px;color:var(--muted);font-size:12px}.status-chip{display:flex;align-items:center;gap:7px}.dot{width:7px;height:7px;background:#17a879;border-radius:50%}.btn{border:0;background:var(--blue);color:white;border-radius:10px;padding:10px 14px;font-weight:700;font-size:13px;box-shadow:0 4px 12px #2563eb24}.btn:disabled{opacity:.6;cursor:wait}.btn.secondary{background:#e9efff;color:#234eae;box-shadow:none}.welcome{background:linear-gradient(115deg,#172b48,#1c4971 70%,#176f78);border-radius:18px;color:white;padding:24px 27px;display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:20px;box-shadow:var(--shadow)}.welcome h2{margin:0 0 7px;font-size:21px;letter-spacing:-.5px}.welcome p{margin:0;color:#c9d9ed;max-width:690px;font-size:13px}.welcome-tag{white-space:nowrap;border:1px solid #ffffff35;background:#ffffff12;padding:8px 11px;border-radius:9px;font-size:11px;color:#e5f4ff}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px}.metric{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:18px;box-shadow:var(--shadow)}.metric-head{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px}.metric-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#edf3ff;color:var(--blue);font-size:17px}.metric strong{display:block;font-size:30px;letter-spacing:-1px;margin:10px 0 2px}.metric small{color:var(--muted);font-size:11px}.metric .red{color:var(--red)}.metric .orange{color:var(--orange)}.section-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:24px 0 13px}.section-head h2{font-size:18px;margin:0;letter-spacing:-.4px}.section-head p{margin:3px 0 0;color:var(--muted);font-size:12px}.filterbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}.filterbar input,.filterbar select{border:1px solid var(--line);border-radius:9px;background:white;padding:10px 12px;color:var(--ink);outline:none}.filterbar input{flex:1;min-width:180px}.filterbar select{min-width:130px}.news-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:17px;align-items:start}.news-list{display:grid;gap:11px}.story{background:white;border:1px solid var(--line);border-radius:14px;padding:17px 18px;box-shadow:var(--shadow);transition:transform .15s,border .15s}.story:hover{transform:translateY(-1px);border-color:#c5d5ef}.story-top{display:flex;justify-content:space-between;gap:12px;align-items:center}.source{font-size:11px;color:var(--muted);font-weight:700}.priority{font-size:10px;font-weight:900;letter-spacing:.6px;padding:4px 7px;border-radius:6px;background:#e7f7f1;color:var(--green);white-space:nowrap}.priority.RED{background:#fff0f1;color:var(--red)}.priority.ORANGE{background:#fff4e6;color:var(--orange)}.priority.YELLOW{background:#fff9df;color:var(--yellow)}.story h3{font-size:15px;line-height:1.45;margin:11px 0 7px}.story h3 a{color:var(--ink);text-decoration:none}.story h3 a:hover{color:var(--blue)}.summary{font-size:12px;color:#68758a;line-height:1.6;margin:0 0 12px}.story-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--muted);font-size:11px}.tags{display:flex;gap:6px;flex-wrap:wrap}.tag{border:1px solid var(--line);border-radius:6px;padding:3px 7px;font-size:10px;color:#617086}.read-link{color:var(--blue);font-weight:800;text-decoration:none;white-space:nowrap}.panel{background:white;border:1px solid var(--line);border-radius:15px;padding:18px;box-shadow:var(--shadow);margin-bottom:14px}.panel h3{margin:0 0 4px;font-size:15px}.panel .sub{font-size:11px;color:var(--muted);margin:0 0 15px}.region-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin:13px 0 6px}.bar{height:6px;background:#eef2f8;border-radius:10px;overflow:hidden}.bar span{height:100%;display:block;background:linear-gradient(90deg,#3478f6,#18b8a0);border-radius:10px}.opportunity{padding:12px 0;border-top:1px solid var(--line)}.opportunity:first-of-type{border-top:0}.opportunity b{font-size:12px;display:block;margin-bottom:4px}.opportunity p{font-size:11px;color:var(--muted);margin:0;line-height:1.55}.telegram-card{background:#edf5ff;border:1px solid #d4e6ff;border-radius:14px;padding:16px}.telegram-card h3{font-size:14px;margin:0 0 5px}.telegram-card p{font-size:11px;color:#60718a;margin:0 0 12px}.command{display:flex;justify-content:space-between;gap:10px;font:11px ui-monospace,monospace;color:#2452a3;padding:6px 0;border-top:1px solid #d7e6fa}.empty{background:white;border:1px dashed #cad5e5;border-radius:13px;padding:30px;text-align:center;color:var(--muted);font-size:13px}.footer{margin-top:24px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#8792a4;font-size:10px}.toast{position:fixed;bottom:20px;right:20px;background:#14233a;color:#fff;border-radius:10px;padding:12px 16px;font-size:12px;box-shadow:var(--shadow);display:none;z-index:9}.mobile-menu{display:none}
+@media(max-width:1080px){.news-layout{grid-template-columns:minmax(0,1fr) 250px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.layout{grid-template-columns:215px 1fr}.sidebar{padding:20px 12px}}
+@media(max-width:780px){.layout{display:block}.sidebar{display:none}.main{padding:20px 14px}.topbar{align-items:flex-start}.top-actions{flex-wrap:wrap;justify-content:flex-end}.date-chip{display:none}.welcome{padding:20px;align-items:flex-start}.welcome-tag{display:none}.news-layout{grid-template-columns:1fr}.aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.aside .panel{margin:0}.telegram-card{grid-column:1/-1}.metrics{gap:9px}.metric{padding:14px}.metric strong{font-size:26px}.section-head{align-items:start}.story{padding:15px}.story-foot{align-items:flex-start;flex-direction:column}.topbar h1{font-size:25px}.status-chip{display:none}}
+@media(max-width:480px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.aside{grid-template-columns:1fr}.telegram-card{grid-column:auto}.topbar{display:block}.top-actions{justify-content:flex-start;margin-top:12px}.welcome h2{font-size:19px}.filterbar select{flex:1}.metric-head{font-size:10px}}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+  <div class="brand"><div class="brand-mark">EI</div><div><strong>Economic Intelligence</strong><small>Cambodia · ASEAN · Global</small></div></div>
+  <div><div class="nav-label">Workspace</div><nav class="nav">
+    <button class="active" data-view="all"><span class="ico">▦</span> Overview</button>
+    <button data-view="Cambodia"><span class="ico">⌂</span> Cambodia</button>
+    <button data-view="ASEAN"><span class="ico">◎</span> ASEAN Region</button>
+    <button data-view="Global"><span class="ico">◉</span> Global Markets</button>
+    <button data-view="opportunities"><span class="ico">✦</span> Business Opportunities</button>
+  </nav></div>
+  <div><div class="nav-label">System</div><nav class="nav"><button id="refreshSide"><span class="ico">↻</span> Refresh news</button><button id="telegramSide"><span class="ico">➤</span> Telegram connection</button></nav></div>
+  <div class="side-note"><b>Think like a business leader</b>News → Why → Money flow → Cambodia impact → Business opportunity → Action.</div>
+</aside>
+<main class="main">
+  <header class="topbar">
+    <div><div class="eyebrow">Your business command center</div><h1 id="pageTitle">Economic Overview</h1></div>
+    <div class="top-actions"><div class="status-chip"><span class="dot"></span><span id="systemStatus">Connecting to cloud</span></div><div class="date-chip" id="today"></div><button class="btn" id="refreshBtn">↻ Refresh data</button></div>
+  </header>
+  <section class="welcome">
+    <div><h2>See the signal. Understand the money. Find the opportunity.</h2><p>Daily business intelligence for Cambodia, ASEAN, and global markets — translated into questions and actions that help you make better business decisions.</p></div>
+    <div class="welcome-tag">⌁ DAILY INTELLIGENCE</div>
+  </section>
+  <section class="metrics">
+    <div class="metric"><div class="metric-head">Stories collected <span class="metric-icon">▤</span></div><strong id="totalMetric">—</strong><small>Available in your cloud database</small></div>
+    <div class="metric"><div class="metric-head">High priority <span class="metric-icon" style="background:#fff0f1;color:#c83f4d">!</span></div><strong class="red" id="redMetric">—</strong><small>Review these stories first</small></div>
+    <div class="metric"><div class="metric-head">Priority signals <span class="metric-icon" style="background:#fff4e6;color:#c87513">↗</span></div><strong class="orange" id="orangeMetric">—</strong><small>Potentially important developments</small></div>
+    <div class="metric"><div class="metric-head">Cambodia stories <span class="metric-icon" style="background:#e6faf6;color:#0f9f91">⌂</span></div><strong id="cambodiaMetric">—</strong><small>Local market relevance</small></div>
+  </section>
+  <div class="section-head"><div><h2 id="newsTitle">Latest intelligence</h2><p>Prioritized headlines from news feeds. Open the source to verify details.</p></div></div>
+  <div class="filterbar"><input id="searchInput" type="search" placeholder="Search news, topics, sources…"><select id="regionFilter"><option value="All">All regions</option><option>Cambodia</option><option>ASEAN</option><option>China</option><option>US</option><option>Europe</option><option>Global</option></select><select id="priorityFilter"><option value="">All priorities</option><option value="RED">Red — urgent review</option><option value="ORANGE">Orange — high</option><option value="YELLOW">Yellow — watch</option><option value="GREEN">Green — monitor</option></select></div>
+  <div class="news-layout">
+    <section><div class="news-list" id="newsList"><div class="empty">Connecting to your Cloudflare database…</div></div><div style="text-align:center;margin-top:14px"><button class="btn secondary" id="moreBtn" style="display:none">Load more stories</button></div></section>
+    <aside class="aside">
+      <div class="panel"><h3>Regional coverage</h3><p class="sub">Stories currently shown</p>
+        <div class="region-row"><span>Cambodia</span><b id="cambodiaCount">0</b></div><div class="bar"><span id="cambodiaBar" style="width:0%"></span></div>
+        <div class="region-row"><span>ASEAN</span><b id="aseanCount">0</b></div><div class="bar"><span id="aseanBar" style="width:0%"></span></div>
+        <div class="region-row"><span>Global & other</span><b id="globalCount">0</b></div><div class="bar"><span id="globalBar" style="width:0%"></span></div>
+      </div>
+      <div class="panel"><h3>Opportunity lens</h3><p class="sub">Questions to ask about important news</p>
+        <div class="opportunity"><b>01 · Customer demand</b><p>Could this change what people or businesses need, buy, sell, or hire?</p></div>
+        <div class="opportunity"><b>02 · Money flow</b><p>Who gains, who pays more, and where could investment move?</p></div>
+        <div class="opportunity"><b>03 · Khmer24 impact</b><p>Could this affect Auto, Property, Jobs, or Marketplace activity?</p></div>
+        <div class="opportunity"><b>04 · Next action</b><p>What data should we verify before acting?</p></div>
+      </div>
+      <div class="telegram-card"><h3>➤ Telegram intelligence</h3><p>Get briefings on your phone at 07:00 and 18:00 Cambodia time after bot setup.</p>
+        <div class="command"><span>/today</span><span>Daily report</span></div><div class="command"><span>/cambodia</span><span>Local signals</span></div><div class="command"><span>/asean</span><span>Regional news</span></div><div class="command"><span>/global</span><span>Global view</span></div><div class="command"><span>/opportunities</span><span>Business lens</span></div>
+      </div>
+    </aside>
+  </div>
+  <footer class="footer"><span>Economic Intelligence · Cloudflare Workers + D1</span><span>News is a signal, not a forecast. Verify material claims at the original source.</span></footer>
+</main>
+</div><div class="toast" id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+const state={stories:[],filtered:[],shown:15,view:"all",live:false};
+const demo=[
+ {title:"Cambodia business and investment outlook: monitor policy and market changes",source:"Economic Intelligence",url:"https://www.worldbank.org/en/country/cambodia",summary:"Sample placeholder. After deployment, the collector will retrieve current stories from configured RSS feeds. Use original sources for verification.",region:"Cambodia",category:"Investment",priority:"ORANGE",score:4,collected:new Date().toISOString()},
+ {title:"ASEAN trade and supply chains: watch regional demand and logistics",source:"Economic Intelligence",url:"https://www.asean.org/",summary:"Sample placeholder for the dashboard preview. Real headlines will appear after Cloudflare D1 is configured and the first collection runs.",region:"ASEAN",category:"Trade",priority:"YELLOW",score:3,collected:new Date().toISOString()},
+ {title:"Global interest rates and business financing: review borrowing costs",source:"Economic Intelligence",url:"https://www.imf.org/en/News",summary:"Sample placeholder. The website does not present this as a current news report; it illustrates how stories will be displayed.",region:"Global",category:"Interest Rates",priority:"YELLOW",score:2,collected:new Date().toISOString()}
+];
+function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.style.display="none",3500)}
+function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function formatDate(s){if(!s)return "Recently collected";const d=new Date(s);return isNaN(d)?"Recently collected":d.toLocaleString("en-GB",{timeZone:"Asia/Phnom_Penh",day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})+" ICT"}
+function filterStories(){
+ const q=$("searchInput").value.trim().toLowerCase(),r=$("regionFilter").value,p=$("priorityFilter").value;
+ state.filtered=state.stories.filter(s=>(state.view==="all"||state.view==="opportunities"||(s.region===state.view))&&(r==="All"||s.region===r)&&(!p||s.priority===p)&&(!q||[s.title,s.summary,s.source,s.category,s.region].join(" ").toLowerCase().includes(q)));
+ renderStories();
+}
+function renderStories(){
+ const arr=state.filtered.slice(0,state.shown);
+ if(!arr.length){$("newsList").innerHTML='<div class="empty">No matching stories. Try another region or search term, or refresh the news feeds.</div>';$("moreBtn").style.display="none";return}
+ $("newsList").innerHTML=arr.map(s=>`<article class="story"><div class="story-top"><span class="source">${esc(s.source||"News source")} · ${esc(s.region||"Global")}</span><span class="priority ${esc(s.priority||"GREEN")}">${esc(s.priority||"GREEN")} PRIORITY</span></div><h3><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a></h3>${s.summary?`<p class="summary">${esc(s.summary).slice(0,360)}${s.summary.length>360?"…":""}</p>`:""}<div class="story-foot"><div class="tags"><span class="tag">${esc(s.category||"Other")}</span><span class="tag">${formatDate(s.collected||s.published)}</span></div><a class="read-link" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">Read source ↗</a></div></article>`).join("");
+ $("moreBtn").style.display=state.filtered.length>state.shown?"inline-block":"none";
+}
+function setMetric(id,val){$(id).textContent=Number(val||0).toLocaleString()}
+function updateStats(stats){
+ setMetric("totalMetric",stats.total??state.stories.length);setMetric("redMetric",stats.red??state.stories.filter(s=>s.priority==="RED").length);setMetric("orangeMetric",stats.orange??state.stories.filter(s=>s.priority==="ORANGE").length);setMetric("cambodiaMetric",stats.cambodia??state.stories.filter(s=>s.region==="Cambodia").length);
+ const c=state.stories.filter(s=>s.region==="Cambodia").length,a=state.stories.filter(s=>s.region==="ASEAN").length,g=Math.max(0,state.stories.length-c-a),t=Math.max(1,state.stories.length);
+ [["cambodia",c],["asean",a],["global",g]].forEach(([k,v])=>{$(k+"Count").textContent=v;$(k+"Bar").style.width=Math.round(v/t*100)+"%"});
+}
+async function loadNews(showToast=false){
+ const btn=$("refreshBtn");btn.disabled=true;btn.textContent="↻ Loading…";
+ try{
+  const response=await fetch("/api/news?limit=100",{headers:{"accept":"application/json"}});
+  if(!response.ok)throw new Error("API "+response.status);
+  const data=await response.json();state.stories=data.stories||[];state.live=true;$("systemStatus").textContent="Cloud connected";
+  if(!state.stories.length){state.stories=demo;state.live=false;$("systemStatus").textContent="Awaiting first collection";$("newsTitle").textContent="Dashboard preview · sample stories";if(showToast)toast("Database is connected. Run the first news collection to load live stories.");}
+  else $("newsTitle").textContent="Latest intelligence";
+  updateStats(data.stats||{});filterStories();if(showToast&&state.live)toast("News dashboard updated.");
+ }catch(e){
+  state.stories=demo;state.live=false;$("systemStatus").textContent="Preview mode";$("newsTitle").textContent="Dashboard preview · sample stories";updateStats({});filterStories();
+  if(showToast)toast("Could not reach the API. Check your Cloudflare deployment and D1 migration.");
+ }finally{btn.disabled=false;btn.textContent="↻ Refresh data"}
+}
+async function refreshServer(){
+ const key=prompt("Enter your ADMIN_SECRET to collect new stories. This secret is configured in Cloudflare Worker settings.");
+ if(!key)return;
+ $("refreshBtn").disabled=true;$("refreshBtn").textContent="↻ Collecting…";
+ try{const r=await fetch("/api/refresh",{method:"POST",headers:{"authorization":"Bearer "+key}});
+ if(!r.ok)throw new Error(r.status===401?"Secret not accepted":"API "+r.status);
+ const d=await r.json();toast(`Collection complete: ${d.added} new stories from ${d.checked} feeds.`);await loadNews(false);
+ }catch(e){toast("Collection failed: "+e.message)}finally{$("refreshBtn").disabled=false;$("refreshBtn").textContent="↻ Refresh data"}
+}
+function changeView(v){
+ state.view=v;document.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
+ $("pageTitle").textContent=v==="all"?"Economic Overview":v==="opportunities"?"Business Opportunities":v+" Intelligence";
+ $("newsTitle").textContent=v==="opportunities"?"News to investigate for business opportunities":"Latest intelligence";
+ filterStories();window.scrollTo({top:0,behavior:"smooth"});
+}
+document.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>changeView(b.dataset.view)));
+$("searchInput").addEventListener("input",()=>{state.shown=15;filterStories()});
+$("regionFilter").addEventListener("change",()=>{state.shown=15;filterStories()});
+$("priorityFilter").addEventListener("change",()=>{state.shown=15;filterStories()});
+$("moreBtn").addEventListener("click",()=>{state.shown+=15;renderStories()});
+$("refreshBtn").addEventListener("click",refreshServer);$("refreshSide").addEventListener("click",refreshServer);
+$("telegramSide").addEventListener("click",()=>toast("Telegram setup steps are in README.md. Set secrets, deploy, then register the webhook."));
+$("today").textContent=new Date().toLocaleDateString("en-GB",{timeZone:"Asia/Phnom_Penh",weekday:"short",day:"numeric",month:"short",year:"numeric"})+" · ICT";
+loadNews();
+</script>
+</body></html>

@@ -1,0 +1,23 @@
+name = "economic-intelligence-dashboard"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "economic-intelligence-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[triggers]
+# 00:00 UTC = 07:00 Cambodia; 11:00 UTC = 18:00 Cambodia
+crons = ["0 0,11 * * *"]
+
+[vars]
+APP_NAME = "Economic Intelligence"
+TIMEZONE = "Asia/Phnom_Penh"
+MAX_STORIES = "100"

@@ -1,0 +1,17 @@
+{
+  "name": "economic-intelligence-cloudflare",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Cloudflare Workers + D1 + Telegram business intelligence dashboard",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create economic-intelligence-db",
+    "db:migrate:local": "wrangler d1 migrations apply economic-intelligence-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply economic-intelligence-db --remote",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.151.0"
+  }
+}
