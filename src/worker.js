@@ -22,11 +22,16 @@ const FEEDS = [
   {name:"DW World", url:"https://rss.dw.com/rdf/rss-en-world"},
   {name:"UN Economic Development", url:"https://news.un.org/feed/subscribe/en/news/topic/economic-development/feed/rss.xml"},
   {name:"Economic Times", url:"https://economictimes.indiatimes.com/rssfeedstopstories.cms"},
-  // Cambodia: every Cambodia-specific feed tested (Khmer Times, Phnom Penh Post,
-  // Google News topic search) returns 403/503 from Cloudflare Workers egress,
-  // which the collector cannot bypass. Kept so coverage resumes automatically
-  // if the publisher allows Workers traffic again.
-  {name:"Khmer Times", url:"https://www.khmertimeskh.com/feed/"}
+  // Cambodia coverage. Khmer Times and Phnom Penh Post return 403 to Cloudflare
+  // Workers egress and cannot be bypassed in code; Google News topic search
+  // returns 503. These routes are verified reachable from the Worker itself.
+  // defaultRegion applies when keyword matching finds nothing, so Khmer-script
+  // headlines from a Cambodia publisher are still attributed to Cambodia.
+  {name:"Cambodia Daily", url:"https://www.cambodiadaily.com/rss", defaultRegion:"Cambodia"},
+  {name:"Thaiger Cambodia", url:"https://thethaiger.com/tag/cambodia/feed/"},
+  {name:"Thaiger SE Asia", url:"https://thethaiger.com/tag/southeast-asia/feed/"},
+  {name:"ASEAN Brief Cambodia", url:"https://www.aseanbrief.com/?s=Cambodia&feed=rss2"},
+  {name:"Lowy Interpreter", url:"https://www.lowyinstitute.org/the-interpreter/rss.xml"}
 ];
 
 const PER_FEED = 15;
@@ -158,6 +163,9 @@ async function collect(env) {
       if(!stories.length) { failed.push(feed.name+": no parsable items"); continue; }
       for(const s of stories) {
         const cls=classify(s.title,s.summary);
+        // A known Cambodia publisher outranks a blank keyword match, which is
+        // what Khmer-script headlines from Cambodia Daily would otherwise get.
+        if(cls.region==="Global" && feed.defaultRegion) cls.region=feed.defaultRegion;
         rows.push([s.url,s.title,s.summary,s.source,s.published,now,cls.region,cls.category,cls.priority,cls.score]);
       }
     } catch(e) { failed.push(feed.name+": "+String(e.message||e)); }

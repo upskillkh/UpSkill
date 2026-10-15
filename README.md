@@ -183,13 +183,22 @@ The schedule is configured in `wrangler.toml`. Cron triggers are approximate sch
 
 ## RSS feeds and limitations
 
-The collector uses 21 feeds across ASEAN/regional, markets/finance, and general world sources, including ASEAN.org, CNA, Nikkei Asia, SCMP, Straits Times, VnExpress, CNBC, BBC Asia, UN Economic Development, and others. Each run pulls up to 15 items per feed and writes them to D1 in batches.
+The collector uses 25 feeds, all verified reachable from the deployed Worker. Each run pulls up to 15 items per feed and writes them to D1 in batches of 50.
 
-**Feed reachability must be tested from the Worker, not from your own machine.** Cloudflare Workers egress from different IP addresses than your browser, and publishers filter per IP, so a feed can work locally and still return 403 from the Worker. A temporary `/api/probe` endpoint was used to confirm which feeds actually work from the deployed runtime; all 20 working feeds were verified that way rather than assumed.
+**Feed reachability must be tested from the Worker, not from your own machine.** Cloudflare Workers egress from different IP addresses than your browser, and publishers filter per IP, so a feed can work locally and still return 403 from the Worker. A temporary admin-only `/api/probe` endpoint was used to confirm which feeds actually work from the deployed runtime; every feed listed here was verified that way rather than assumed.
 
-**Cambodia coverage is currently zero, and the collector cannot fix it.** Every Cambodia-specific route tested — Khmer Times, Phnom Penh Post, and Google News topic search — returns 403 or 503 specifically for Cloudflare Workers egress. Khmer Times is deliberately kept in the feed list so coverage resumes automatically if the publisher allows Workers traffic again. Cambodia stories do appear occasionally via regional feeds that carry them.
+### Cambodia coverage
 
-Some publishers block automated traffic entirely. Always open the original source and verify significant claims. Priority labels are heuristic triage, not a financial forecast or factual rating of the publisher.
+Cambodia was initially collecting zero stories. Root cause and resolution:
+
+- **Khmer Times** and **Phnom Penh Post** return HTTP 403 specifically to Cloudflare Workers egress, under both a bot and a browser user agent. This is IP-based filtering and cannot be bypassed in code. Both were removed.
+- **Google News topic search** returns HTTP 503 from Workers, so it cannot be used as a fallback route.
+- **Bing News RSS** responds but returns stale, low-quality results dated 2016-2024 behind `bing.com/news/apiclick.aspx` redirect URLs, so it was rejected despite returning 200.
+- Working replacements: **Cambodia Daily**, **Thaiger Cambodia** (tag feed), **ASEAN Brief Cambodia** (search feed), plus **Lowy Interpreter** and **Thaiger SE Asia** for regional analysis.
+
+Cambodia Daily publishes in Khmer. Its headlines contain no English keywords, so they fall to GREEN priority and would otherwise be attributed to Global. Feeds can declare a `defaultRegion`, which applies when keyword matching finds nothing, so Cambodia Daily rows are attributed to Cambodia. Verified that Khmer text is stored and served intact (no replacement characters).
+
+Always open the original source and verify significant claims. Priority labels are heuristic triage, not a financial forecast or factual rating of the publisher.
 
 ### Classification accuracy
 
