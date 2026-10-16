@@ -180,7 +180,19 @@ async function api(path,opts={}){
   return d;
 }
 
-function showGate(){$("gate").hidden=false;$("view").innerHTML='<div class="spin">Loading…</div>'}
+// Optimistic default: the server runs with PERSONAL_DASHBOARD_OPEN = true. If
+// the session call itself fails we then show a retry card rather than a
+// credential form that would be meaningless. boot() corrects this to the real
+// mode as soon as the server answers.
+let OPEN_MODE = true;
+function showGate(){
+  if(OPEN_MODE){
+    // Do not fall back to a credential prompt when none is required.
+    $("view").innerHTML='<div class="card"><h3>Could not load the dashboard</h3><p class="sub">The dashboard is unlocked, so this is not a sign-in problem. The server did not respond as expected.</p><p style="margin-top:12px"><button class="btn" onclick="location.reload()">Reload</button></p></div>';
+    return;
+  }
+  $("gate").hidden=false;$("view").innerHTML='<div class="spin">Loading…</div>'
+}
 function hideGate(){$("gate").hidden=true}
 
 // ---------------------------------------------------------------- login
@@ -247,9 +259,10 @@ $("logoutBtn").addEventListener("click",async()=>{
 async function boot(){
   try{
     const s=await api("/api/skills/session",{noAuthRedirect:true});
+    OPEN_MODE = (s.via === "open");
     // Report honestly what protection this dashboard actually has. In open mode
     // the footer previously still read "Private data", which was a false claim.
-    $("privacyNote").textContent = s.via==="open"
+    $("privacyNote").textContent = OPEN_MODE
       ? "OPEN MODE: no sign-in. Anyone with this link can read and change this data."
       : "Private data. Progress is calculated from your saved records only.";
     if(!s.authenticated){showGate();return}
@@ -276,6 +289,12 @@ async function loadAll(){
     S.templates=templates.templates||[];S.journal=journal.entries||[];S.reminders=prefs.remindersEnabled;
     status("");render();
   }catch(e){
+    if(OPEN_MODE){
+      // No credential is required in open mode, so "sign in again" is always the
+      // wrong advice. Say what actually happened and offer a retry.
+      $("view").innerHTML=`<div class="card"><h3>Could not load the dashboard</h3><p class="sub">The dashboard is unlocked, so this is not a sign-in problem. The server did not respond as expected.</p><p class="sub" style="margin-top:8px">${esc(e.message||"Unknown error")}</p><p style="margin-top:14px"><button class="btn" onclick="location.reload()">Reload</button></p></div>`;
+      return;
+    }
     if(/sign in|Unauthorized/i.test(e.message)){
       $("view").innerHTML="";
       showGate();
