@@ -131,8 +131,14 @@ ok('news API still works', news.status === 200 && Array.isArray(news.data?.stori
 ok('news data intact (617)', news.data?.stats?.total === 617, `${news.data?.stats?.total}`);
 const h = await call('/api/health');
 ok('health still works', h.status === 200 && h.data?.telegramConfigured === true);
-ok('legacy secret guard still protects /api/skills/progress',
-  (await fetch(`${BASE}/api/skills/progress`)).status === 401);
+// POLICY CHANGE (owner-approved): the personal dashboard is now intentionally
+// open (PERSONAL_DASHBOARD_OPEN in src/worker.js), so it no longer returns 401.
+// What must still hold is the boundary that keeps registered accounts private:
+// an anonymous visitor must never reach the multi-user platform layer.
+ok('personal dashboard is open by design (no 401)',
+  (await fetch(`${BASE}/api/skills/progress`)).status === 200);
+ok('platform account data still rejects anonymous',
+  (await fetch(`${BASE}/api/platform/profile`)).status === 401);
 
 console.log(`\n${'='.repeat(62)}\n${pass}/${pass + fail} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

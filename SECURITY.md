@@ -40,6 +40,37 @@ once the admin surface exists.
 - The legacy `ADMIN_SECRET` guard still protects the original single-user
   routes. Both mechanisms coexist during the migration.
 
+## ⚠️ The personal dashboard is currently OPEN (no sign-in)
+
+**Read this before sharing the URL with anyone.**
+
+On the owner's instruction, `PERSONAL_DASHBOARD_OPEN` in `src/worker.js` is set
+to `true`. While it is true:
+
+- **Every** `/api/skills/*` route is readable **and writable** with no
+  credential of any kind — no password, no cookie, no token.
+- Exposed data includes the learning journal, business assignments,
+  reflections, quiz answers, progress records and reminder preferences.
+- A visitor can also **write** to that data: post journal entries, complete
+  lessons, and alter progress records.
+- The hostname is a public `workers.dev` address. The link is the only secret,
+  and it has been shared in chat history. Treat anything written there as
+  potentially readable by anyone who obtains it.
+
+What is **not** affected:
+
+- `/api/platform/*` still requires a real signed-in account and still returns
+  401 to anonymous callers. Registered users cannot read each other's records.
+- `ADMIN_SECRET`, `TELEGRAM_BOT_TOKEN` and the Telegram webhook secret are
+  unaffected and still required for the scheduled jobs.
+- The news API, scheduled reports and Telegram bot are unchanged.
+
+**To lock the dashboard again:** set `PERSONAL_DASHBOARD_OPEN = false` in
+`src/worker.js` and run `npx wrangler deploy`. No client change is needed — the
+sign-in form is still present in `public/skills.html` and works unchanged. The
+test suites assert the open-mode policy, so update the three assertions named in
+the commit that introduced it when you flip it back.
+
 ## Abuse controls
 
 | Action | Limit |

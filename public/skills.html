@@ -127,7 +127,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--blue);box-shadow:0 0 
   </header>
   <div id="status"></div>
   <section id="view"></section>
-  <footer class="footer"><span>Khmer24 Growth System · Cloudflare Workers + D1</span><span>Private data. Progress is calculated from your saved records only.</span></footer>
+  <footer class="footer"><span>Khmer24 Growth System · Cloudflare Workers + D1</span><span id="privacyNote">Loading…</span></footer>
 </main>
 </div>
 
@@ -247,6 +247,11 @@ $("logoutBtn").addEventListener("click",async()=>{
 async function boot(){
   try{
     const s=await api("/api/skills/session",{noAuthRedirect:true});
+    // Report honestly what protection this dashboard actually has. In open mode
+    // the footer previously still read "Private data", which was a false claim.
+    $("privacyNote").textContent = s.via==="open"
+      ? "OPEN MODE: no sign-in. Anyone with this link can read and change this data."
+      : "Private data. Progress is calculated from your saved records only.";
     if(!s.authenticated){showGate();return}
     hideGate();
     await loadAll();

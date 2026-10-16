@@ -465,7 +465,25 @@ async function ensureSeeded(env) {
   await seedTask;
   return true;
 }
+// ---------------------------------------------------------------------------
+// PERSONAL DASHBOARD OPEN MODE  --  set to false to restore the sign-in gate.
+//
+// The owner asked for the Skill Development dashboard to open without a
+// password. While true, EVERY /api/skills/* route is readable and writable by
+// anyone who can reach this hostname, with no credential of any kind. That
+// includes the learning journal, business assignments, reflections, quiz results
+// and the Telegram linking settings, and it allows anyone to modify them.
+//
+// This is a deliberate, owner-approved trade of privacy for convenience on a
+// publicly resolvable workers.dev address. Flip this one line back to false and
+// redeploy to lock it again; the login form is still present in skills.html and
+// works unchanged.
+// ---------------------------------------------------------------------------
+const PERSONAL_DASHBOARD_OPEN = true;
+
 async function authorizePersonal(request, env) {
+  if (PERSONAL_DASHBOARD_OPEN) return { ok: true, via: "open" };
+
   const auth = await authorize(request, env);
   if (auth.ok) return auth;
 

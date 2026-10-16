@@ -72,12 +72,20 @@ const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Phnom_Penh", ye
 (async () => {
   console.log(`\nTesting ${BASE}\n${"=".repeat(60)}\n`);
 
-  // --- 1. Protection on personal data ------------------------------------
+  // --- 1. Personal dashboard exposure -------------------------------------
+  // POLICY CHANGE (owner-approved): PERSONAL_DASHBOARD_OPEN is true in
+  // src/worker.js, so /api/skills/* no longer requires any credential. These
+  // assertions now guard the new policy deliberately rather than by accident,
+  // and they pin the boundary: the multi-user platform layer must STAY locked
+  // so one visitor can never read another person's account.
   const noAuth = await call("/api/skills/today", { auth: false });
-  record("unauthenticated /api/skills/today is rejected", noAuth.status === 401, `got ${noAuth.status}`);
+  record("open mode: /api/skills/today needs no credential", noAuth.status === 200, `got ${noAuth.status}`);
 
   const noAuthProgress = await call("/api/skills/journal", { auth: false });
-  record("unauthenticated /api/skills/journal is rejected", noAuthProgress.status === 401, `got ${noAuthProgress.status}`);
+  record("open mode: /api/skills/journal needs no credential", noAuthProgress.status === 200, `got ${noAuthProgress.status}`);
+
+  const platformAnon = await call("/api/platform/profile", { auth: false });
+  record("platform isolation survives open mode (401)", platformAnon.status === 401, `got ${platformAnon.status}`);
 
   const badLogin = await call("/api/skills/login", { method: "POST", body: { secret: "wrong-secret" }, auth: false });
   record("login with wrong secret returns 401", badLogin.status === 401, `got ${badLogin.status}`);
@@ -89,7 +97,12 @@ const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Phnom_Penh", ye
 
   const session = await call("/api/skills/session");
   record("session reports authenticated", session.status === 200 && session.data?.authenticated === true);
-  record("session authenticated via cookie, not raw secret", session.data?.via === "cookie", `via=${session.data?.via}`);
+  // In open mode /session reports via="open" because no credential was involved
+  // at all. The secret is still rejected when supplied directly, which is the
+  // property worth keeping: nothing bypasses authorize() by echoing the secret.
+  const sessionVia = session.data?.via;
+  record("session reports a recognised auth path",
+    ["cookie", "open"].includes(sessionVia), `via=${sessionVia}`);
 
   // --- 3. Curriculum ------------------------------------------------------
   const plan = await call("/api/skills/plan");
@@ -290,9 +303,15 @@ const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Phnom_Penh", ye
     !JSON.stringify(health.data).toLowerCase().includes("token") && !JSON.stringify(health.data).toLowerCase().includes("secret"));
 
   // --- 14. Logout ---------------------------------------------------------
+  // Logout used to be the thing that re-locked the dashboard. In open mode it
+  // cannot, by design. The real boundary to hold is the multi-user platform,
+  // which stays locked regardless.
   await call("/api/skills/logout", { method: "POST" });
   const afterLogout = await call("/api/skills/today");
-  record("after logout, private data is rejected again", afterLogout.status === 401, `got ${afterLogout.status}`);
+  record("open mode: logout does not re-lock the personal dashboard", afterLogout.status === 200, `got ${afterLogout.status}`);
+
+  const platformAfterLogout = await call("/api/platform/profile", { auth: false });
+  record("platform still rejects anonymous after logout", platformAfterLogout.status === 401, `got ${platformAfterLogout.status}`);
 
   // --- summary ------------------------------------------------------------
   const passed = results.filter((r) => r.pass).length;
