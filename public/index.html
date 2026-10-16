@@ -133,5 +133,28 @@ $("telegramSide").addEventListener("click",()=>toast("Telegram setup steps are i
 $("skillsNav").addEventListener("click",()=>location.href="/skills.html");
 $("today").textContent=new Date().toLocaleDateString("en-GB",{timeZone:"Asia/Phnom_Penh",weekday:"short",day:"numeric",month:"short",year:"numeric"})+" · ICT";
 loadNews();
+
+// ---- one-time service worker repair (added 2026-10-16) ----
+// A v1 service worker precached /skills.html and served it cache-first, which
+// pinned browsers to stale JavaScript so buttons silently did nothing. This page
+// was never precached, so it always loads fresh and can repair the cache.
+// Safe to run repeatedly: it only unregisters when a worker is present, and the
+// app re-registers a corrected worker on the next page that asks for one.
+(function repairServiceWorker(){
+  if(!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.getRegistrations().then(function(regs){
+    if(!regs.length) return;
+    regs.forEach(function(r){ r.unregister().catch(function(){}); });
+    if(window.caches && caches.keys){
+      caches.keys().then(function(keys){
+        keys.forEach(function(k){ caches.delete(k); });
+      }).catch(function(){});
+    }
+    try{ localStorage.setItem("upskill_sw_repaired","1"); }catch(e){}
+    if(!/skills\.html|welcome\.html/.test(location.pathname)){
+      console.info("Up Skill: stale service worker and caches cleared. Links are fresh again.");
+    }
+  }).catch(function(){});
+})();
 </script>
 </body></html>

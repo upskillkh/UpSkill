@@ -614,6 +614,18 @@ async function openAssessment(){
 
 // ---------------------------------------------------------------- init
 $("today").textContent=new Date().toLocaleDateString("en-GB",{timeZone:ICT,weekday:"short",day:"numeric",month:"short",year:"numeric"})+" · ICT";
+// ---- service worker integrity check (added 2026-10-16) ----
+// If this file is served from an OLD service worker cache, the Sign in handler
+// does not exist and the page appears frozen. Drop the worker so the corrected
+// version is fetched from the network on the next load.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function (regs) {
+    regs.forEach(function (r) { r.unregister().catch(function () {}); });
+    if (window.caches && caches.keys) {
+      caches.keys().then(function (k) { k.forEach(function (n) { caches.delete(n); }); }).catch(function () {});
+    }
+  }).catch(function () {});
+}
 reload();boot();
 </script>
 </body></html>

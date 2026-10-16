@@ -243,7 +243,12 @@ fetch('/api/auth/me').then(r=>r.ok?r.json():null).then(d=>{
 }).catch(()=>{});
 
 if('serviceWorker' in navigator){
- window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+  // Drop any stale worker from an earlier release so this page is never served
+  // from an old cache after a deploy.
+  navigator.serviceWorker.getRegistrations().then(function(regs){
+    regs.forEach(function(r){ r.unregister().catch(function(){}); });
+    if(window.caches&&caches.keys){ caches.keys().then(function(k){ k.forEach(function(n){ caches.delete(n); }); }).catch(function(){}); }
+  }).catch(function(){});
 }
 </script>
 </body>
