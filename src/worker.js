@@ -295,9 +295,9 @@ async function handleSkills(request, env, url) {
   if (route === "/login" && request.method === "POST") {
     if (!env.ADMIN_SECRET) return json({ error: "ADMIN_SECRET is not configured" }, 503);
     const body = await readBody(request);
-    const supplied = String(body.secret || "");
-    // Compare via the same path as the header check to keep timing behaviour
-    // consistent, then issue a signed cookie that does not contain the secret.
+    // Trim: a trailing space or newline from copy/paste is a common and
+    // invisible cause of a rejected-but-correct secret.
+    const supplied = String(body.secret || "").trim();
     const ok = await authorize(
       new Request(request.url, { headers: { authorization: "Bearer " + supplied } }),
       env

@@ -163,7 +163,7 @@ function niceDate(s){if(!s)return"—";const d=new Date(s);return isNaN(d)?"—"
 
 async function api(path,opts={}){
   const r=await fetch(path,{credentials:"same-origin",headers:{"content-type":"application/json",accept:"application/json",...(opts.headers||{})},...opts});
-  if(r.status===401){showGate();throw new Error("Session expired. Please sign in again.");}
+  if(r.status===401&&!opts.noAuthRedirect){showGate();throw new Error("Your session expired. Please sign in again.");}
   const text=await r.text();
   let d={};try{d=JSON.parse(text)}catch{d={error:"Unexpected server response"}}
   if(!r.ok)throw new Error(d.error||("API "+r.status));
@@ -177,10 +177,17 @@ function hideGate(){$("gate").hidden=true}
 $("loginForm").addEventListener("submit",async e=>{
   e.preventDefault();
   const btn=$("loginBtn");btn.disabled=true;btn.textContent="Checking…";$("gateMsg").hidden=true;
+  const typed=$("secretInput").value.trim();
   try{
-    await api("/api/skills/login",{method:"POST",body:JSON.stringify({secret:$("secretInput").value})});
+    if(!typed)throw new Error("Enter your ADMIN_SECRET to continue.");
+    await api("/api/skills/login",{method:"POST",body:JSON.stringify({secret:typed}),noAuthRedirect:true});
     $("secretInput").value="";hideGate();await boot();
-  }catch(err){$("gateMsg").hidden=false;$("gateMsg").textContent=err.message;}
+  }catch(err){
+    $("gateMsg").hidden=false;
+    $("gateMsg").textContent=err.message==="Incorrect secret"
+      ? "That secret was not accepted. Check for stray spaces when pasting."
+      : err.message;
+  }
   finally{btn.disabled=false;btn.textContent="Unlock";}
 });
 $("logoutBtn").addEventListener("click",async()=>{
