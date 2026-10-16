@@ -481,8 +481,30 @@ These cannot be automated:
 4. **Register the webhook** once, after the first deploy.
 5. **Send `/start`** to your bot so Telegram can deliver anything.
 6. **Find your numeric chat ID** — send `/start`, then run `node telegram-check.cjs`.
-7. **Enable reminders** — send `/reminder_on`, or use the toggle on the Telegram tab. Reminders do not begin until the cron trigger is deployed *and* this is enabled.
+7. **Enable daily lessons** — send `/reminder_on`, or use the toggle on the Telegram tab. Do not promise a 06:00 lesson before the cron trigger is deployed *and* this is switched on.
 8. **Push to GitHub** — see the note below. `gh` is not required; Git Credential Manager handles it.
+
+### Rotating ADMIN_SECRET
+
+`ADMIN_SECRET` protects the Refresh button and every personal learning record. It must change in
+**two** places, because a mismatch produces a confusing "Incorrect secret":
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"   # 1. generate
+npx wrangler secret put ADMIN_SECRET                                             # 2. Cloudflare
+# 3. edit the ADMIN_SECRET= line in .dev.vars                                     # 3. local
+```
+
+Verify before walking away — the new secret returns 200 and the old one 401:
+
+```bash
+curl -X POST "$SITE/api/skills/login" -H "content-type: application/json" -d '{"secret":"NEW"}'
+```
+
+Cloudflare takes a short moment to propagate a new secret. A `401` straight after `secret put`
+usually means propagation rather than a failed rotation, so wait a minute and retest before assuming
+it broke. Logins tolerate leading and trailing whitespace, so a stray space from copy-paste will not
+lock you out.
 
 ### GitHub push: watch for the wrong account
 
