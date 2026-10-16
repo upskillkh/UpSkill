@@ -11,6 +11,19 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+// Default the target URL from wrangler.toml so the suite can never keep
+// testing a stale deployment after a Cloudflare account move.
+function siteUrlFromConfig() {
+  try {
+    const toml = readFileSync(join(root, "wrangler.toml"), "utf8");
+    const m = toml.match(/^\s*SITE_URL\s*=\s*"([^"]+)"/m);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
 const vars = Object.fromEntries(
   readFileSync(join(root, ".dev.vars"), "utf8")
     .split(/\r?\n/)
@@ -21,8 +34,16 @@ const vars = Object.fromEntries(
     })
 );
 
-const BASE = (process.env.BASE_URL || "https://economic-intelligence-dashboard.ebookskh855.workers.dev").replace(/\/$/, "");
+const BASE = (
+  process.env.BASE_URL || siteUrlFromConfig() || "http://127.0.0.1:8787"
+).replace(/\/$/, "");
 const SECRET = process.env.ADMIN_SECRET || vars.ADMIN_SECRET;
+
+console.log(`\nTarget: ${BASE}`);
+if (!SECRET) {
+  console.error("ADMIN_SECRET not found in .dev.vars or the environment.");
+  process.exit(1);
+}
 
 let cookie = "";
 const results = [];
