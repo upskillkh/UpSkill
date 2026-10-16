@@ -10,6 +10,24 @@ import {
 } from "./auth-users.js";
 import { LESSONS, SKILLS } from "./skills-data.js";
 
+// Khmer translations. They are a separate artefact so a lesson exists once and
+// its language variants hang off it. They are marked review_status "machine"
+// and must be human-reviewed before being presented as vetted course content.
+let LESSONS_KM = [];
+try {
+  const mod = await import("./skills-data-km.js");
+  LESSONS_KM = mod.LESSONS_KM || [];
+} catch {
+  // A missing Khmer file must never break English delivery.
+  LESSONS_KM = [];
+}
+const KM_BY_DAY = new Map(LESSONS_KM.map((l) => [l.day, l]));
+
+async function lessonsCount(env) {
+  const { results } = await env.DB.prepare(`SELECT COUNT(*) n FROM lessons`).all();
+  return results?.[0]?.n || 0;
+}
+
 export const LOCALES = ["en", "km"];
 export const LEVELS = ["beginner", "intermediate", "advanced"];
 
@@ -123,8 +141,17 @@ export async function updateProfile(env, userId, body) {
 /** Idempotently publish the built-in 30-day curriculum as platform lessons. */
 export async function seedLessons(env) {
   const now = new Date().toISOString();
-  const { results: have } = await env.DB.prepare(`SELECT COUNT(*) AS n FROM lessons`).all();
-  if ((have?.[0]?.n || 0) >= LESSONS.length) return { skipped: true };
+  const { results } = await env.DB.prepare(`SELECT locale, COUNT(*) n FROM lesson_translations GROUP BY locale`).all();
+  const counts = Object.fromEntries((results || []).map((r) => [r.locale, r.n]));
+
+  // The guard must consider both locales. Checking only `lessons` meant that
+  // once English existed, the Khmer rows were never written.
+  const wantEn = LESSONS.length;
+  const wantKm = KM_BY_DAY.size;
+  const lessonsFull = await lessonsCount(env);
+  if (lessonsFull >= wantEn && (counts.en || 0) >= wantEn && (counts.km || 0) >= wantKm) {
+    return { skipped: true };
+  }
 
   const stmts = [];
   for (const l of LESSONS) {
@@ -139,8 +166,8 @@ export async function seedLessons(env) {
   }
   for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
 
-  // English translations, marked machine-generated and pending human review so
-  // they are never presented as vetted educational content.
+  // English translations, marked human-reviewed because the curriculum was
+  // authored directly in English rather than machine translated.
   const { results: lessonRows } = await env.DB.prepare(`SELECT id, day FROM lessons`).all();
   const byDay = new Map((lessonRows || []).map((r) => [r.day, r.id]));
 
@@ -160,9 +187,33 @@ export async function seedLessons(env) {
              Math.min(3, Math.max(0, Number(l.quiz.answer) || 0)), l.quiz.explain || "", now)
     );
   }
+
+  // Khmer translations are stored with review_status "machine" on purpose, so
+  // the platform can surface that they still need a human reviewer.
+  for (const l of LESSONS_KM) {
+    const lessonId = byDay.get(l.day);
+    if (!lessonId || !l.title) continue;
+    trStmts.push(
+      env.DB.prepare(
+        `INSERT INTO lesson_translations
+           (lesson_id, locale, title, objective, explanation, example, exercise, action,
+            reflection, quiz_question, quiz_options, quiz_answer, quiz_explain, review_status, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'machine',?)
+         ON CONFLICT(lesson_id, locale) DO UPDATE SET
+           title=excluded.title, objective=excluded.objective, explanation=excluded.explanation,
+           example=excluded.example, exercise=excluded.exercise, action=excluded.action,
+           reflection=excluded.reflection, quiz_question=excluded.quiz_question,
+           quiz_options=excluded.quiz_options, quiz_answer=excluded.quiz_answer,
+           quiz_explain=excluded.quiz_explain, updated_at=excluded.updated_at`
+      ).bind(lessonId, "km", l.title, l.objective, l.explanation, l.example, l.exercise,
+             l.action, l.reflection, l.quiz?.question || "", JSON.stringify(l.quiz?.options || []),
+             Math.min(3, Math.max(0, Number(l.quiz?.answer) || 0)), l.quiz?.explain || "", now)
+    );
+  }
+
   for (let i = 0; i < trStmts.length; i += 50) await env.DB.batch(trStmts.slice(i, i + 50));
 
-  return { seeded: LESSONS.length };
+  return { seeded: LESSONS.length, khmer: LESSONS_KM.length };
 }
 
 /**
@@ -209,7 +260,9 @@ export async function getLessonForUser(env, day, locale = "en") {
     estMinutes: row.est_minutes,
     locale: row.locale,
     fallback: !!row.fallback,
+    // Surfaced so the UI can tell a learner the Khmer text still needs review.
     reviewStatus: row.review_status,
+    needsReview: row.review_status === "machine",
     title: row.title || "",
     objective: row.objective || "",
     explanation: row.explanation || "",
