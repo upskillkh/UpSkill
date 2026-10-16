@@ -1,14 +1,26 @@
 # Deployment checklist
 
+## 0. Which account
+
+This project is deployed to **`upskillkh@gmail.com`** (`4e5183ecd6abf6c6e0345fec49e0ad3f`).
+
+```powershell
+npx wrangler whoami   # must print upskillkh@gmail.com
+```
+
+If it prints a different account, every command below will create resources in the wrong place.
+Sign in again with `npx wrangler login --device`.
+
 ## A. First-time setup (new machine or new account)
 
 - [ ] Install Node.js LTS
 - [ ] Extract the ZIP and run `npm install`
 - [ ] On Windows PowerShell, either run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` in an
       Administrator prompt, or use the `.cmd` wrappers (`npm.cmd`, `npx.cmd`) throughout
-- [ ] Run `npx wrangler login`
+- [ ] Run `npx wrangler login --device` and sign in as `upskillkh@gmail.com`
 - [ ] Create the D1 database: `npx wrangler d1 create economic-intelligence-db`
 - [ ] Copy the printed `database_id` into `wrangler.toml`
+- [ ] Set `SITE_URL` in `wrangler.toml` `[vars]` to the deployed workers.dev URL
 
 ## B. Database migrations
 

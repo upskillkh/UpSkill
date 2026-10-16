@@ -10,7 +10,7 @@ not_found_handling = "single-page-application"
 [[d1_databases]]
 binding = "DB"
 database_name = "economic-intelligence-db"
-database_id = "cdaf1c1d-5365-4184-b013-6e09acd1330c"
+database_id = "af176e6a-8321-4142-8708-5e255cb0a50c"
 migrations_dir = "migrations"
 
 [triggers]
@@ -30,4 +30,4 @@ APP_NAME = "Economic Intelligence"
 TIMEZONE = "Asia/Phnom_Penh"
 MAX_STORIES = "100"
 # Used in the Telegram learning reminder so the message links to this site.
-SITE_URL = "https://economic-intelligence-dashboard.ebookskh855.workers.dev"
+SITE_URL = "https://economic-intelligence-dashboard.upskillkh.workers.dev"

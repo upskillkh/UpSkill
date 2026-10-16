@@ -5,6 +5,16 @@ personal skill development system that turns daily learning into real business g
 
 Everything runs on Cloudflare after deployment. Your computer is only used to deploy.
 
+**Live deployment:** `https://economic-intelligence-dashboard.upskillkh.workers.dev`
+
+| | |
+| --- | --- |
+| Cloudflare account | `upskillkh@gmail.com` (`4e5183ecd6abf6c6e0345fec49e0ad3f`) |
+| D1 database | `economic-intelligence-db` (`af176e6a-8321-4142-8708-5e255cb0a50c`) |
+| Dashboard | `/` — economic intelligence |
+| Skill Development | `/skills.html` — sign in with `ADMIN_SECRET` |
+| Telegram bot | `@upskill4mebot` |
+
 ## Included
 
 ### Economic Intelligence
@@ -78,30 +88,25 @@ Your computer is only used to upload/deploy the project. The deployed service ru
 
 ### Windows PowerShell note
 
-PowerShell's default execution policy blocks `npm.ps1` and `npx.ps1`, which makes every `npm` / `npx` command in this guide fail with:
-
-```text
-npm.ps1 cannot be loaded because running scripts is disabled on this system
-```
-
-You have two options. Either is fine.
-
-**Option A — use the `.cmd` wrappers (no system change, recommended to start).**
-Replace every `npm` / `npx` in this guide with `npm.cmd` / `npx.cmd`:
-
-```powershell
-npm.cmd install
-npx.cmd wrangler login
-npx.cmd wrangler d1 create economic-intelligence-db
-```
-
-**Option B — allow the scripts once per user account.** Open PowerShell as Administrator and run:
+If `npm` or `npx` fails with `npm.ps1 cannot be loaded because running scripts is disabled`,
+either use the `.cmd` wrappers (`npm.cmd`, `npx.cmd`) or run this once in an Administrator
+PowerShell:
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 
-This permits locally created scripts, which is the normal setting for developer machines. It affects your user account only, not the whole machine.
+### Authorising wrangler for your account
+
+Wrangler must be signed in to the Cloudflare account that owns the Worker. The device flow avoids
+any localhost callback problems:
+
+```powershell
+npx wrangler login --device
+```
+
+Verify with `npx wrangler whoami` — it must print `upskillkh@gmail.com`, otherwise every deploy
+command will target a different account.
 
 
 ## Deployment guide
