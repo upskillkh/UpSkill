@@ -6,6 +6,9 @@ import { SKILLS, LESSONS, ASSIGNMENTS, ASSESSMENT } from "./skills-data.js";
 
 export const ICT = "Asia/Phnom_Penh";
 export const PROGRAM_DAYS = 30;
+// Migration 0005 introduced accounts. The legacy personal dashboard (the one
+// protected by ADMIN_SECRET) belongs to the migrated owner account, id 1.
+export const OWNER_ID = 1;
 
 // ---------------------------------------------------------------------------
 // Cambodia-time helpers
@@ -161,33 +164,43 @@ export async function seedCurriculum(env) {
   await refreshProgressCache(env);
 }
 
-/** Recompute the cached rollup table. Always derived, never trusted blindly. */
+/**
+ * Recompute the cached rollup table.
+ * Migration 0005 dropped skill_progress in favour of per-user lesson_progress,
+ * so this is now a best-effort write: if the legacy table is absent the derived
+ * figures in getProgress remain authoritative and nothing fails.
+ */
 export async function refreshProgressCache(env) {
-  const now = new Date().toISOString();
-  const { results } = await env.DB.prepare(
-    `SELECT l.skill,
-            COUNT(DISTINCT l.day) AS total,
-            COUNT(DISTINCT CASE WHEN s.completed = 1 THEN l.day END) AS done,
-            MAX(CASE WHEN s.completed = 1 THEN s.completed_at END) AS last_studied
-       FROM skill_lessons l
-       LEFT JOIN learning_sessions s ON s.day = l.day AND s.completed = 1
-      GROUP BY l.skill`
-  ).all();
+  try {
+    const now = new Date().toISOString();
+    const { results } = await env.DB.prepare(
+      `SELECT l.skill,
+              COUNT(DISTINCT l.day) AS total,
+              COUNT(DISTINCT CASE WHEN s.completed = 1 THEN l.day END) AS done,
+              MAX(CASE WHEN s.completed = 1 THEN s.completed_at END) AS last_studied
+         FROM skill_lessons l
+         LEFT JOIN learning_sessions s ON s.day = l.day AND s.completed = 1 AND s.user_id = ?
+        GROUP BY l.skill`
+    ).bind(OWNER_ID).all();
 
-  const stmts = (results || []).map((r) =>
-    env.DB
-      .prepare(
-        `INSERT INTO skill_progress (skill,total_lessons,completed_lessons,last_studied,updated_at)
-         VALUES (?,?,?,?,?)
-         ON CONFLICT(skill) DO UPDATE SET
-           total_lessons=excluded.total_lessons,
-           completed_lessons=excluded.completed_lessons,
-           last_studied=excluded.last_studied,
-           updated_at=excluded.updated_at`
-      )
-      .bind(r.skill, r.total || 0, r.done || 0, r.last_studied || null, now)
-  );
-  if (stmts.length) await env.DB.batch(stmts);
+    const stmts = (results || []).map((r) =>
+      env.DB
+        .prepare(
+          `INSERT INTO skill_progress (skill,total_lessons,completed_lessons,last_studied,updated_at)
+           VALUES (?,?,?,?,?)
+           ON CONFLICT(skill) DO UPDATE SET
+             total_lessons=excluded.total_lessons,
+             completed_lessons=excluded.completed_lessons,
+             last_studied=excluded.last_studied,
+             updated_at=excluded.updated_at`
+        )
+        .bind(r.skill, r.total || 0, r.done || 0, r.last_studied || null, now)
+    );
+    if (stmts.length) await env.DB.batch(stmts);
+  } catch (e) {
+    // The rollup is a cache. Never let its absence break a save.
+    console.error("refreshProgressCache skipped:", String(e.message || e).slice(0, 120));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -262,8 +275,8 @@ export async function getToday(env) {
   const lesson = await getLesson(env, lessonDay);
   const skill = SKILLS.find((s) => s.key === lesson?.skill);
   const { results: sess } = await env.DB
-    .prepare(`SELECT * FROM learning_sessions WHERE session_date = ? AND day = ?`)
-    .bind(date, lessonDay)
+    .prepare(`SELECT * FROM learning_sessions WHERE user_id = ? AND session_date = ? AND day = ?`)
+    .bind(OWNER_ID, date, lessonDay)
     .all();
 
   const session = sess?.[0] || null;
@@ -320,9 +333,9 @@ export async function saveSession(env, input) {
   await env.DB
     .prepare(
       `INSERT INTO learning_sessions
-         (session_date,day,skill,step_learned,step_analyzed,step_applied,minutes,notes,completed,completed_at,created_at,updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-       ON CONFLICT(session_date,day) DO UPDATE SET
+         (user_id, session_date, day, skill, step_learned, step_analyzed, step_applied, minutes, notes, completed, completed_at, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+       ON CONFLICT(user_id, session_date, day) DO UPDATE SET
          step_learned=excluded.step_learned,
          step_analyzed=excluded.step_analyzed,
          step_applied=excluded.step_applied,
@@ -332,7 +345,7 @@ export async function saveSession(env, input) {
          completed_at=excluded.completed_at,
          updated_at=excluded.updated_at`
     )
-    .bind(date, day, lesson.skill, learned, analyzed, applied, minutes, notes, completed, completed ? now : null, now, now)
+    .bind(OWNER_ID, date, day, lesson.skill, learned, analyzed, applied, minutes, notes, completed, completed ? now : null, now, now)
     .run();
 
   await refreshProgressCache(env);
@@ -356,9 +369,9 @@ export async function saveQuiz(env, input) {
 
   await env.DB
     .prepare(
-      `INSERT INTO quiz_attempts (day,skill,question,chosen,correct,created_at) VALUES (?,?,?,?,?,?)`
+      `INSERT INTO quiz_attempts (user_id, day, skill, question, chosen, correct, created_at) VALUES (?,?,?,?,?,?,?)`
     )
-    .bind(day, lesson.skill, row.quiz_question, chosen >= 0 ? chosen : null, correct ? 1 : 0, new Date().toISOString())
+    .bind(OWNER_ID, day, lesson.skill, row.quiz_question, chosen >= 0 ? chosen : null, correct ? 1 : 0, new Date().toISOString())
     .run();
 
   return {
@@ -373,41 +386,38 @@ export async function saveQuiz(env, input) {
 export async function saveJournal(env, input) {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(String(input.date || "")) ? input.date : ictDate();
   const now = new Date().toISOString();
+  // Migration 0005 scoped this table per account, so the conflict target is now
+  // (user_id, entry_date). The legacy personal dashboard acts as the owner (1).
   await env.DB
     .prepare(
       `INSERT INTO learning_journal
-         (entry_date,learned,applied,worked_well,did_not_work,improve,next_action,mood,created_at,updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?)
-       ON CONFLICT(entry_date) DO UPDATE SET
+         (user_id, entry_date, learned, applied, worked_well, did_not_work, improve, next_action, mood, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)
+       ON CONFLICT(user_id, entry_date) DO UPDATE SET
          learned=excluded.learned,applied=excluded.applied,worked_well=excluded.worked_well,
          did_not_work=excluded.did_not_work,improve=excluded.improve,next_action=excluded.next_action,
          mood=excluded.mood,updated_at=excluded.updated_at`
     )
-    .bind(
-      date,
-      clean(input.learned),
-      clean(input.applied),
-      clean(input.worked_well),
-      clean(input.did_not_work),
-      clean(input.improve),
-      clean(input.next_action),
+    .bind(OWNER_ID, date,
+      clean(input.learned), clean(input.applied), clean(input.worked_well),
+      clean(input.did_not_work), clean(input.improve), clean(input.next_action),
       input.mood == null || input.mood === "" ? null : toInt(input.mood, 1, 5),
-      now,
-      now
-    )
+      now, now)
     .run();
   return { ok: true, date };
 }
 
 export async function getJournalEntry(env, date) {
-  const { results } = await env.DB.prepare(`SELECT * FROM learning_journal WHERE entry_date = ?`).bind(date).all();
+  const { results } = await env.DB
+    .prepare(`SELECT * FROM learning_journal WHERE user_id = ? AND entry_date = ?`)
+    .bind(OWNER_ID, date).all();
   return results?.[0] || null;
 }
 
 export async function listJournal(env, limit = 60) {
   const { results } = await env.DB
-    .prepare(`SELECT * FROM learning_journal ORDER BY entry_date DESC LIMIT ?`)
-    .bind(Math.min(200, Math.max(1, Number(limit) || 60)))
+    .prepare(`SELECT * FROM learning_journal WHERE user_id = ? ORDER BY entry_date DESC LIMIT ?`)
+    .bind(OWNER_ID, Math.min(200, Math.max(1, Number(limit) || 60)))
     .all();
   return results || [];
 }
@@ -418,7 +428,7 @@ export async function saveAssignment(env, input) {
   const status = ["draft", "active", "done"].includes(input.status) ? input.status : "draft";
 
   if (Number.isInteger(id) && id > 0) {
-    const { results } = await env.DB.prepare(`SELECT id FROM business_assignments WHERE id = ?`).bind(id).all();
+    const { results } = await env.DB.prepare(`SELECT id FROM business_assignments WHERE user_id = ? AND id = ?`).bind(OWNER_ID, id).all();
     if (!results?.[0]) throw new Error("assignment not found");
 
     // Only touch fields the caller actually sent. A blank field in the form is
@@ -471,7 +481,9 @@ export async function saveAssignment(env, input) {
 }
 
 export async function listAssignments(env) {
-  const { results } = await env.DB.prepare(`SELECT * FROM business_assignments ORDER BY updated_at DESC, id DESC`).all();
+  const { results } = await env.DB
+    .prepare(`SELECT * FROM business_assignments WHERE user_id = ? ORDER BY updated_at DESC, id DESC`)
+    .bind(OWNER_ID).all();
   return results || [];
 }
 
@@ -518,11 +530,11 @@ export async function getProgress(env) {
       `SELECT COUNT(*) AS attempts,
               SUM(correct) AS correct,
               COUNT(DISTINCT day) FILTER (WHERE correct = 1) AS days_passed
-         FROM quiz_attempts`
-    ).all().then((r) => r.results?.[0] || {}),
+         FROM quiz_attempts WHERE user_id = ?`
+    ).bind(OWNER_ID).all().then((r) => r.results?.[0] || {}),
     env.DB.prepare(
-      `SELECT session_date, day, skill, minutes, completed FROM learning_sessions`
-    ).all().then((r) => r.results || []),
+      `SELECT session_date, day, skill, minutes, completed FROM learning_sessions WHERE user_id = ?`
+    ).bind(OWNER_ID).all().then((r) => r.results || []),
     listJournal(env, 400),
   ]);
 
@@ -673,40 +685,40 @@ export async function claimDelivery(env, info, date = ictDate()) {
   const ins = await env.DB
     .prepare(
       `INSERT OR IGNORE INTO lesson_deliveries
-         (delivered_date,day,skill,weekday,message_type,status,attempts,delivered_at,created_at,updated_at)
-       VALUES (?,?,?,?,?,'pending',0,NULL,?,?)`
+         (user_id, delivered_date, day, skill, weekday, message_type, status, attempts, delivered_at, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,'pending',0,NULL,?,?)`
     )
-    .bind(date, info.day ?? 0, info.skill ?? info.type, info.weekday ?? 0, info.type, now, now)
+    .bind(OWNER_ID, date, info.day ?? 0, info.skill ?? info.type, info.weekday ?? 0, info.type, now, now)
     .run();
 
   if (ins.meta?.changes) return "claim";
 
   // Row already exists for this date.
   const { results } = await env.DB
-    .prepare(`SELECT status FROM lesson_deliveries WHERE delivered_date = ?`)
-    .bind(date)
+    .prepare(`SELECT status FROM lesson_deliveries WHERE user_id = ? AND delivered_date = ?`)
+    .bind(OWNER_ID, date)
     .all();
   if (results?.[0]?.status === "sent") return "sent";
 
   await env.DB
-    .prepare(`UPDATE lesson_deliveries SET status='pending', attempts=attempts+1, updated_at=? WHERE delivered_date=?`)
-    .bind(now, date)
+    .prepare(`UPDATE lesson_deliveries SET status='pending', attempts=attempts+1, updated_at=? WHERE user_id = ? AND delivered_date = ?`)
+    .bind(now, OWNER_ID, date)
     .run();
   return "claim";
 }
 
 export async function markDelivered(env, date = ictDate()) {
   await env.DB
-    .prepare(`UPDATE lesson_deliveries SET status='sent', delivered_at=?, updated_at=? WHERE delivered_date=?`)
-    .bind(new Date().toISOString(), new Date().toISOString(), date)
+    .prepare(`UPDATE lesson_deliveries SET status='sent', delivered_at=?, updated_at=? WHERE user_id = ? AND delivered_date = ?`)
+    .bind(new Date().toISOString(), new Date().toISOString(), OWNER_ID, date)
     .run();
 }
 
 /** Release the claim on failure so a later run can retry without duplicating. */
 export async function markDeliveryFailed(env, error, date = ictDate()) {
   await env.DB
-    .prepare(`UPDATE lesson_deliveries SET status='failed', last_error=?, updated_at=? WHERE delivered_date=?`)
-    .bind(String(error || "unknown").slice(0, 300), new Date().toISOString(), date)
+    .prepare(`UPDATE lesson_deliveries SET status='failed', last_error=?, updated_at=? WHERE user_id = ? AND delivered_date = ?`)
+    .bind(String(error || "unknown").slice(0, 300), new Date().toISOString(), OWNER_ID, date)
     .run();
 }
 
@@ -717,8 +729,9 @@ export async function deliveryStats(env) {
               SUM(CASE WHEN status='sent' THEN 1 ELSE 0 END) sent,
               SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed,
               MAX(delivered_at) last_delivery
-         FROM lesson_deliveries`
+         FROM lesson_deliveries WHERE user_id = ?`
     )
+    .bind(OWNER_ID)
     .all();
   return results?.[0] || { total: 0, sent: 0, failed: 0, last_delivery: null };
 }
@@ -728,26 +741,28 @@ export async function saveReflection(env, body, source = "telegram") {
   const now = new Date().toISOString();
   await env.DB
     .prepare(
-      `INSERT INTO reflections (entry_date,day,prompt,body,source,created_at,updated_at)
-       VALUES (?,?,?,?,?,?,?)
-       ON CONFLICT(entry_date) DO UPDATE SET
+      `INSERT INTO reflections (user_id, entry_date, day, prompt, body, source, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?)
+       ON CONFLICT(user_id, entry_date) DO UPDATE SET
          day=excluded.day, prompt=excluded.prompt, body=excluded.body,
          source=excluded.source, updated_at=excluded.updated_at`
     )
-    .bind(date, toInt(body.day, 0, PROGRAM_DAYS, null) ?? null, clean(body.prompt, 300), clean(body.body, 4000), source, now, now)
+    .bind(OWNER_ID, date, toInt(body.day, 0, PROGRAM_DAYS, null) ?? null, clean(body.prompt, 300), clean(body.body, 4000), source, now, now)
     .run();
   return { ok: true, date };
 }
 
 export async function getReflection(env, date) {
-  const { results } = await env.DB.prepare(`SELECT * FROM reflections WHERE entry_date = ?`).bind(date).all();
+  const { results } = await env.DB
+    .prepare(`SELECT * FROM reflections WHERE user_id = ? AND entry_date = ?`)
+    .bind(OWNER_ID, date).all();
   return results?.[0] || null;
 }
 
 export async function listReflections(env, limit = 30) {
   const { results } = await env.DB
-    .prepare(`SELECT * FROM reflections ORDER BY entry_date DESC LIMIT ?`)
-    .bind(Math.min(200, Math.max(1, Number(limit) || 30)))
+    .prepare(`SELECT * FROM reflections WHERE user_id = ? ORDER BY entry_date DESC LIMIT ?`)
+    .bind(OWNER_ID, Math.min(200, Math.max(1, Number(limit) || 30)))
     .all();
   return results || [];
 }
@@ -783,8 +798,8 @@ export async function completeLesson(env, day, notes) {
 
 async function getSessionForDay(env, day) {
   const { results } = await env.DB
-    .prepare(`SELECT * FROM learning_sessions WHERE day = ? ORDER BY completed_at DESC LIMIT 1`)
-    .bind(day)
+    .prepare(`SELECT * FROM learning_sessions WHERE user_id = ? AND day = ? ORDER BY completed_at DESC LIMIT 1`)
+    .bind(OWNER_ID, day)
     .all();
   return results?.[0] || null;
 }

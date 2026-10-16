@@ -9,6 +9,12 @@ import {
 import { handleSkillCommand, handleQuizAnswer, handleCallback, SKILL_HELP } from "./skills-telegram.js";
 import { buildDailyLesson, lessonKeyboard, reviewKeyboard } from "./skills-daily.js";
 import { authorize, createToken, sessionCookie, clearCookie } from "./auth.js";
+import { createSession, sessionCookie as userSessionCookie, clearSessionCookie } from "./auth-users.js";
+import {
+  registerUser, loginUser, logoutUser, currentUser, updateProfile,
+  seedLessons, getLessonForUser, listLessonsForUser, recordLessonCompletion,
+  platformProgress, ensureEnrolment, httpError, LOCALES,
+} from "./platform.js";
 
 const FEEDS = [
   // ASEAN / regional
@@ -338,7 +344,7 @@ async function handleSkills(request, env, url) {
   }
 
   try {
-    await ensureSeeded(env);
+    await seedLessons(env);
   } catch (e) {
     return json({ error: "Curriculum could not be initialised", detail: String(e.message || e) }, 500);
   }
@@ -547,6 +553,160 @@ async function handleTelegram(request, env) {
   if (reply !== SKIP_REPLY) await tryTelegram(env,chatId,reply);
   return json({ok:true});
 }
+// ---------------------------------------------------------------------------
+// Up Skill PWA: account routes
+// ---------------------------------------------------------------------------
+async function handleAuth(request, env, url) {
+  const route = url.pathname.replace(/^\/api\/auth/, "") || "/";
+  const secure = new URL(request.url).protocol === "https:";
+  const meta = { ip: request.headers.get("cf-connecting-ip") || "anon" };
+
+  if (route === "/register" && request.method === "POST") {
+    try {
+      const body = await readBody(request);
+      const { id, email } = await registerUser(env, body, meta);
+      const session = await createSession(env, id);
+      return new Response(JSON.stringify({ ok: true, user: { id, email } }), {
+        status: 201,
+        headers: { "content-type": "application/json", "set-cookie": userSessionCookie(session.token, secure) },
+      });
+    } catch (e) {
+      return json({ error: e.message || "Could not create the account" }, e.status || 400);
+    }
+  }
+
+  if (route === "/login" && request.method === "POST") {
+    try {
+      const body = await readBody(request);
+      const user = await loginUser(env, body, meta);
+      await ensureEnrolment(env, user.id);
+      const session = await createSession(env, user.id);
+      return new Response(JSON.stringify({ ok: true, user: publicUser(user) }), {
+        status: 200,
+        headers: { "content-type": "application/json", "set-cookie": userSessionCookie(session.token, secure) },
+      });
+    } catch (e) {
+      return json({ error: e.message || "Could not sign in" }, e.status || 400);
+    }
+  }
+
+  if (route === "/logout" && request.method === "POST") {
+    await logoutUser(env, request);
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "content-type": "application/json", "set-cookie": clearSessionCookie() },
+    });
+  }
+
+  if (route === "/me" && request.method === "GET") {
+    const user = await currentUser(env, request);
+    if (!user) return json({ authenticated: false }, 401);
+    return json({ authenticated: true, user: publicUser(user) });
+  }
+
+  return json({ error: "Not found" }, 404);
+}
+
+function publicUser(u) {
+  return {
+    id: u.id,
+    email: u.email,
+    displayName: u.display_name,
+    role: u.role,
+    locale: u.locale,
+    level: u.level,
+    occupation: u.occupation,
+    dailyMinutes: u.daily_minutes,
+    goals: u.goals,
+    onboardingDone: !!u.onboarding_done,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Up Skill PWA: authenticated learning routes
+// ---------------------------------------------------------------------------
+async function handlePlatform(request, env, url) {
+  const route = url.pathname.replace(/^\/api\/platform/, "") || "/";
+
+  // Seed the published curriculum before any content read. Idempotent and cheap
+  // once seeded, because seedLessons short-circuits on an already-full table.
+  try {
+    await seedLessons(env);
+  } catch (e) {
+    return json({ error: "Curriculum could not be initialised", detail: String(e.message || e) }, 500);
+  }
+
+  const user = await currentUser(env, request);
+
+  if (route === "/health" && request.method === "GET") {
+    const { results } = await env.DB.prepare(`SELECT COUNT(*) n FROM lessons`).all();
+    const { results: tr } = await env.DB
+      .prepare(`SELECT locale, COUNT(*) n, SUM(CASE WHEN review_status='human_reviewed' THEN 1 ELSE 0 END) reviewed FROM lesson_translations GROUP BY locale`)
+      .all();
+    return json({ ok: true, lessons: results?.[0]?.n || 0, locales: LOCALES, translations: tr || [] });
+  }
+
+  // Every remaining platform route requires a signed-in account.
+  if (!user) return json({ error: "Sign in required" }, 401);
+
+  try {
+    switch (route) {
+      case "/profile": {
+        if (request.method === "GET") return json({ user: publicUser(user) });
+        if (request.method === "POST" || request.method === "PATCH") {
+          const body = await readBody(request);
+          await updateProfile(env, user.id, body);
+          const fresh = await currentUser(env, request);
+          return json({ ok: true, user: publicUser(fresh) });
+        }
+        break;
+      }
+      case "/lessons": {
+        if (request.method === "GET") {
+          const lessons = await listLessonsForUser(env, user.id, url.searchParams.get("locale") || user.locale);
+          return json({ lessons });
+        }
+        break;
+      }
+      case "/lesson": {
+        if (request.method === "GET") {
+          const day = Number.parseInt(url.searchParams.get("day"), 10);
+          if (!Number.isInteger(day) || day < 1 || day > 30) {
+            return json({ error: "day must be between 1 and 30" }, 400);
+          }
+          const locale = url.searchParams.get("locale") || user.locale;
+          const lesson = await getLessonForUser(env, day, locale);
+          if (!lesson) return json({ error: "Lesson not found" }, 404);
+          const { results: prog } = await env.DB
+            .prepare(`SELECT status, minutes, completed_at FROM lesson_progress WHERE user_id=? AND lesson_id=?`)
+            .bind(user.id, lesson.id).all();
+          return json({ lesson, progress: prog?.[0] || null });
+        }
+        if (request.method === "POST") {
+          const body = await readBody(request);
+          const day = Number.parseInt(body.day, 10);
+          if (!Number.isInteger(day) || day < 1 || day > 30) {
+            return json({ error: "day must be between 1 and 30" }, 400);
+          }
+          return json(await recordLessonCompletion(env, user.id, day, body));
+        }
+        break;
+      }
+      case "/progress": {
+        if (request.method === "GET") {
+          return json(await platformProgress(env, user.id, url.searchParams.get("locale") || user.locale));
+        }
+        break;
+      }
+      default:
+        return json({ error: "Not found" }, 404);
+    }
+  } catch (e) {
+    return json({ error: e.message || "Request could not be completed" }, e.status || 500);
+  }
+  return json({ error: "Not found" }, 404);
+}
+
 export default {
   async fetch(request,env,ctx) {
     const url=new URL(request.url);
@@ -575,6 +735,8 @@ export default {
         await telegram(env,env.ALLOWED_CHAT_ID,"✅ Economic Intelligence website connected to Telegram.");
         return json({ok:true});
       }
+      if(url.pathname.startsWith("/api/auth")) return await handleAuth(request, env, url);
+      if(url.pathname.startsWith("/api/platform")) return await handlePlatform(request, env, url);
       if(url.pathname==="/api/skills/daily/preview" && request.method==="POST") {
         const auth=await authorize(request,env);
         if(!auth.ok) return json({error:"Unauthorized"},401);
