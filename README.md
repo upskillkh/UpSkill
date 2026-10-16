@@ -482,7 +482,27 @@ These cannot be automated:
 5. **Send `/start`** to your bot so Telegram can deliver anything.
 6. **Find your numeric chat ID** — send `/start`, then run `node telegram-check.cjs`.
 7. **Enable reminders** — send `/reminder_on`, or use the toggle on the Telegram tab. Reminders do not begin until the cron trigger is deployed *and* this is enabled.
-8. **Push to GitHub** — run `gh auth login` first if the CLI is not authenticated.
+8. **Push to GitHub** — see the note below. `gh` is not required; Git Credential Manager handles it.
+
+### GitHub push: watch for the wrong account
+
+This machine already had a GitHub credential cached for **`khmer24newskh-News`**, while the target
+repository lives under **`upskillkh`**. A push then fails with a misleading message:
+
+```text
+remote: Permission to upskillkh/UpSkill.git denied to khmer24newskh-News.
+fatal: ... 403
+```
+
+Nothing is wrong with the repository — the cached identity simply lacks write access. Check and fix:
+
+```powershell
+git credential-manager github list               # shows the cached account
+git credential-manager github logout "<account>" # remove it
+git push -u origin main                          # re-prompts; sign in as upskillkh
+```
+
+Git Credential Manager opens a browser window for this, so no token ever needs pasting into a chat.
 
 ## Known limitations
 
