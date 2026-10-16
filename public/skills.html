@@ -135,13 +135,23 @@ input:focus,textarea:focus,select:focus{border-color:var(--blue);box-shadow:0 0 
   <div class="box">
     <div class="skill-icon" style="margin-bottom:12px">KS</div>
     <h3 style="margin:0 0 6px">Sign in to your Skill Development</h3>
-    <p class="sub">Your learning records are private. Enter the same ADMIN_SECRET you use for the Economic Intelligence dashboard.</p>
+    <p class="sub">Use your Up Skill account. If you only have the Worker secret, use the other tab.</p>
     <div id="gateMsg" class="status err" hidden></div>
-    <form id="loginForm">
-      <label class="f"><span>Admin secret</span><input type="password" id="secretInput" autocomplete="current-password" required></label>
-      <button class="btn" type="submit" id="loginBtn" style="width:100%">Unlock</button>
+    <div class="tabs" style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="btn secondary tiny" id="tabAcct" style="flex:1">Account</button>
+      <button class="btn secondary tiny" id="tabSecret" style="flex:1">Worker secret</button>
+    </div>
+    <form id="loginAcct">
+      <label class="f"><span>Email</span><input type="email" id="acctEmail" autocomplete="username" required></label>
+      <label class="f"><span>Password</span><input type="password" id="acctPass" autocomplete="current-password" required></label>
+      <button class="btn" type="submit" id="acctBtn" style="width:100%">Sign in</button>
     </form>
-    <p class="sub" style="margin:14px 0 0">Set as a Cloudflare Worker secret named <code>ADMIN_SECRET</code>. Full setup steps are in README.md.</p>
+    <form id="loginForm" hidden>
+      <label class="f"><span>ADMIN_SECRET</span><input type="password" id="secretInput" autocomplete="current-password" required></label>
+      <button class="btn" type="submit" id="loginBtn" style="width:100%">Unlock with secret</button>
+    </form>
+    <p class="sub" style="margin:14px 0 0">No account yet? <a href="/welcome.html">Create one on the Up Skill home page</a>.</p>
+    <p class="sub" style="margin:6px 0 0">The Worker secret lives in <code>D:\Software\UpSkill4Me\.dev.vars</code> and as the Cloudflare Worker secret named <code>ADMIN_SECRET</code>.</p>
   </div>
 </div>
 
@@ -174,6 +184,44 @@ function showGate(){$("gate").hidden=false;$("view").innerHTML='<div class="spin
 function hideGate(){$("gate").hidden=true}
 
 // ---------------------------------------------------------------- login
+const gateMsg = (kind, text) => {
+  const el = $("gateMsg");
+  el.hidden = false;
+  el.className = "status " + kind;
+  el.textContent = text;
+};
+function pickTab(which) {
+  const acct = which === "acct";
+  $("loginAcct").hidden = !acct;
+  $("loginForm").hidden = acct;
+  $("tabAcct").classList.toggle("btn", true);
+  $("tabAcct").className = "btn tiny" + (acct ? "" : " secondary");
+  $("tabSecret").className = "btn tiny" + (acct ? " secondary" : "");
+  $("gateMsg").hidden = true;
+}
+$("tabAcct").addEventListener("click", () => pickTab("acct"));
+$("tabSecret").addEventListener("click", () => pickTab("secret"));
+pickTab("acct");
+
+$("loginAcct").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = $("acctBtn");
+  btn.disabled = true; btn.textContent = "Checking…";
+  try {
+    const email = $("acctEmail").value.trim();
+    const pass = $("acctPass").value;
+    if (!email || !pass) throw new Error("Enter your email and password.");
+    await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password: pass }), noAuthRedirect: true });
+    $("acctPass").value = "";
+    hideGate();
+    await boot();
+  } catch (err) {
+    gateMsg("err", err.message === "Incorrect secret" ? "That did not match." : err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "Sign in";
+  }
+});
+
 $("loginForm").addEventListener("submit",async e=>{
   e.preventDefault();
   const btn=$("loginBtn");btn.disabled=true;btn.textContent="Checking…";$("gateMsg").hidden=true;
@@ -198,11 +246,19 @@ $("logoutBtn").addEventListener("click",async()=>{
 // ---------------------------------------------------------------- loading
 async function boot(){
   try{
-    const s=await api("/api/skills/session");
+    const s=await api("/api/skills/session",{noAuthRedirect:true});
     if(!s.authenticated){showGate();return}
     hideGate();
     await loadAll();
-  }catch(e){ if(e.message.includes("sign in")){showGate()} else {status("err",e.message)} }
+  }catch(e){
+    // A 401 here means there is no valid session. Showing the gate is the only
+    // correct outcome. Previously this could leave the gate hidden with no data
+    // loaded, which rendered every tab blank with no explanation.
+    console.warn("boot:",e.message);
+    showGate();
+    $("gateMsg").hidden=false;
+    $("gateMsg").textContent=e.message||"Please sign in.";
+  }
 }
 async function loadAll(){
   $("view").innerHTML='<div class="spin">Loading your learning data…</div>';
@@ -214,7 +270,16 @@ async function loadAll(){
     S.today=today;S.progress=progress;S.plan=plan.plan||[];S.assignments=assignments.assignments||[];
     S.templates=templates.templates||[];S.journal=journal.entries||[];S.reminders=prefs.remindersEnabled;
     status("");render();
-  }catch(e){$("view").innerHTML=`<div class="status err">${esc(e.message)}</div>`}
+  }catch(e){
+    if(/sign in|Unauthorized/i.test(e.message)){
+      $("view").innerHTML="";
+      showGate();
+      $("gateMsg").hidden=false;
+      $("gateMsg").textContent="Your session expired. Please sign in again.";
+      return;
+    }
+    $("view").innerHTML=`<div class="status err">${esc(e.message)}</div>`;
+  }
 }
 const reload=()=>$("reloadBtn").addEventListener("click",loadAll);
 

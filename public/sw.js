@@ -9,8 +9,8 @@
 //
 // Only successful GET responses for same-origin static paths enter the cache.
 
-const VERSION = "upskill-v1";
-const SHELL = ["/welcome.html", "/skills.html", "/offline.html", "/manifest.webmanifest",
+const VERSION = "upskill-v2";
+const SHELL = ["/welcome.html", "/offline.html", "/manifest.webmanifest",
   "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -50,6 +50,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // HTML documents are NETWORK FIRST.
+  // The app shell is precached, so serving it cache-first would pin users to a
+  // stale copy of the page after every deploy: dead buttons, old login flows.
+  // This was a real bug. Network-first means a deploy reaches users
+  // immediately, and the cache is still the offline fallback.
+  const isDocument =
+    req.mode === "navigate" ||
+    url.pathname === "/" ||
+    url.pathname.endsWith(".html");
+
+  if (isDocument) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.status === 200 && res.type === "basic") {
+            const copy = res.clone();
+            caches.open(VERSION).then((c) => c.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req).then((hit) => hit || caches.match("/offline.html")))
+    );
+    return;
+  }
+
   if (!isCacheableStatic(url)) return;
 
   event.respondWith(
@@ -62,7 +87,7 @@ self.addEventListener("fetch", (event) => {
           }
           return res;
         })
-        .catch(() => hit || caches.match("/offline.html"));
+        .catch(() => hit);
       return hit || network;
     })
   );

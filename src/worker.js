@@ -4,7 +4,7 @@ import {
   saveJournal, getJournalEntry, listJournal, saveAssignment, listAssignments,
   getProgress, getAssessment, setPreference, ictMinutes, ictDate, ictWeekday,
   selectDailyLesson, setLastSent, claimDelivery, markDelivered,
-  markDeliveryFailed, remindersEnabled, clean, toDay, PROGRAM_DAYS,
+  markDeliveryFailed, remindersEnabled, clean, toDay, PROGRAM_DAYS, OWNER_ID,
 } from "./skills.js";
 import { handleSkillCommand, handleQuizAnswer, handleCallback, SKILL_HELP } from "./skills-telegram.js";
 import { buildDailyLesson, lessonKeyboard, reviewKeyboard } from "./skills-daily.js";
@@ -137,8 +137,9 @@ function classify(title, summary) {
   const priority=score>=5?"RED":score>=4?"ORANGE":score>=3?"YELLOW":"GREEN";
   return {region,category,score,priority};
 }
-const json = (data,status=200) =>
-  new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
+function json(data,status=200) {
+  return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
+}
 const SKIP_REPLY = Symbol("skip");
 async function telegram(env, chatId, text, keyboard) {
   if (!env.TELEGRAM_BOT_TOKEN || !chatId) return false;
@@ -334,9 +335,9 @@ async function handleSkills(request, env, url) {
   if (!env.ADMIN_SECRET) {
     return json({ error: "Skill Development is disabled until ADMIN_SECRET is set" }, 503);
   }
-  const auth = await authorize(request, env);
+  const auth = await authorizePersonal(request, env);
   if (!auth.ok) {
-    return json({ error: "Unauthorized", hint: "Sign in at /skills.html with your ADMIN_SECRET" }, 401);
+    return json({ error: "Unauthorized", hint: "Sign in at /skills.html or /welcome.html" }, 401);
   }
 
   if (route === "/session" && request.method === "GET") {
@@ -464,6 +465,20 @@ async function ensureSeeded(env) {
   await seedTask;
   return true;
 }
+async function authorizePersonal(request, env) {
+  const auth = await authorize(request, env);
+  if (auth.ok) return auth;
+
+  // Also accept an Up Skill account session, but ONLY for the migrated owner
+  // account. The legacy /api/skills/* data belongs to user id 1; letting any
+  // signed-in account read it would expose one person's journal and assignments
+  // to another, which is exactly the isolation the platform layer prevents.
+  const user = await currentUser(env, request);
+  if (user && user.id === OWNER_ID) return { ok: true, via: "account" };
+
+  return { ok: false };
+}
+
 async function readBody(request) {
   try {
     return await request.json();
