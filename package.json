@@ -12,7 +12,9 @@
     "db:migrate:remote": "wrangler d1 migrations apply economic-intelligence-db --remote",
     "tail": "wrangler tail",
     "test": "node tests/api.test.mjs",
-    "check:curriculum": "node tests/curriculum.test.mjs"
+    "test:platform": "node tests/platform.test.mjs",
+    "check:curriculum": "node tests/curriculum.test.mjs",
+    "icons": "node make-icons.cjs"
   },
   "devDependencies": {
     "wrangler": "^4.151.0"

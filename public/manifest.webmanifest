@@ -1,0 +1,23 @@
+{
+  "name": "Up Skill PWA",
+  "short_name": "Up Skill",
+  "description": "Bilingual learning platform for practical professional skills. Learn, practise, apply, measure, improve.",
+  "start_url": "/welcome.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f3f6fb",
+  "theme_color": "#101b2d",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "productivity", "business"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Today's lesson", "short_name": "Today", "url": "/skills.html", "description": "Open your learning plan" },
+    { "name": "Economic Intelligence", "short_name": "News", "url": "/", "description": "Cambodia, ASEAN and global news" }
+  ]
+}

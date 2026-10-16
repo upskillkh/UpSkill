@@ -1,115 +1,148 @@
-# Deployment checklist
+# Deployment checklist — Up Skill PWA
 
-## 0. Which account
+Live: `https://economic-intelligence-dashboard.upskillkh.workers.dev`
 
-This project is deployed to **`upskillkh@gmail.com`** (`4e5183ecd6abf6c6e0345fec49e0ad3f`).
+| | |
+| --- | --- |
+| Cloudflare account | `upskillkh@gmail.com` (`4e5183ecd6abf6c6e0345fec49e0ad3f`) |
+| Worker | `economic-intelligence-dashboard` |
+| D1 | `economic-intelligence-db` (`af176e6a-8321-4142-8708-5e255cb0a50c`) |
+| Cron | `0 0,11,23 * * *` — 06:00 lesson, 07:00 and 18:00 news (1 of 5 slots) |
+| Telegram bot | `@upskill4mebot` |
+
+## 0. Confirm the account first
 
 ```powershell
-npx wrangler whoami   # must print upskillkh@gmail.com
+npx wrangler whoami    # must print upskillkh@gmail.com
 ```
 
-If it prints a different account, every command below will create resources in the wrong place.
-Sign in again with `npx wrangler login --device`.
+Every command below creates resources in the account you are signed in to.
 
-## A. First-time setup (new machine or new account)
+## 1. Database
 
-- [ ] Install Node.js LTS
-- [ ] Extract the ZIP and run `npm install`
-- [ ] On Windows PowerShell, either run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` in an
-      Administrator prompt, or use the `.cmd` wrappers (`npm.cmd`, `npx.cmd`) throughout
-- [ ] Run `npx wrangler login --device` and sign in as `upskillkh@gmail.com`
-- [ ] Create the D1 database: `npx wrangler d1 create economic-intelligence-db`
-- [ ] Copy the printed `database_id` into `wrangler.toml`
-- [ ] Set `SITE_URL` in `wrangler.toml` `[vars]` to the deployed workers.dev URL
+```powershell
+npx wrangler d1 create economic-intelligence-db
+```
+Copy the `database_id` into `wrangler.toml`. Then:
 
-## B. Database migrations
+```powershell
+npx wrangler d1 migrations apply economic-intelligence-db --remote
+```
 
-- [ ] `npx wrangler d1 migrations apply economic-intelligence-db --remote`
-- [ ] Confirm all four migrations report success:
-      `0001_init.sql`, `0002_skills.sql`, `0003_seed_skills.sql`, `0004_skill_delivery.sql`
-- [ ] Confirm existing news is intact: `npx wrangler d1 execute economic-intelligence-db --remote --command "SELECT COUNT(*) FROM stories"`
+All six migrations must report success:
 
-## C. Secrets (never put these in `wrangler.toml` or frontend code)
+- `0001_init.sql` — news table
+- `0002_skills.sql` — skill development tables
+- `0003_seed_skills.sql` — five skills
+- `0004_skill_delivery.sql` — daily delivery tracking
+- `0005_platform_users.sql` — **multi-user platform** (rebuilds four single-user
+  tables with `user_id` scoping; copies existing rows to owner account id 1)
+- `0006_rate_limits.sql` — rate limiting
 
-- [ ] `npx wrangler secret put TELEGRAM_BOT_TOKEN` — from a **dedicated** @BotFather bot
-- [ ] `npx wrangler secret put ALLOWED_CHAT_ID` — your numeric chat ID
-- [ ] `npx wrangler secret put TELEGRAM_WEBHOOK_SECRET`
-- [ ] `npx wrangler secret put ADMIN_SECRET` — protects personal learning data
+> **Rehearse locally first.** `0005` rebuilds tables and SQLite cannot undo it
+> once applied. Run `npx wrangler d1 migrations apply economic-intelligence-db --local`
+> before the remote run.
 
-## D. Deploy
+Verify the news survived:
 
-- [ ] Set `SITE_URL` in `wrangler.toml` `[vars]` to the deployed workers.dev URL
-- [ ] `npx wrangler deploy`
-- [ ] Note the printed URL, e.g. `https://<name>.<account>.workers.dev`
-- [ ] Verify `https://<url>/api/health` returns `"ok": true`
+```powershell
+npx wrangler d1 execute economic-intelligence-db --remote --command "SELECT COUNT(*) FROM stories"
+```
 
-## E. Telegram
+## 2. Secrets
 
-- [ ] Register the webhook (one-time, after the first deploy). **`allowed_updates` must include
-      `callback_query` or the lesson buttons will not respond:**
+```powershell
+npx wrangler secret put TELEGRAM_BOT_TOKEN
+npx wrangler secret put ALLOWED_CHAT_ID
+npx wrangler secret put TELEGRAM_WEBHOOK_SECRET
+npx wrangler secret put ADMIN_SECRET
+```
+
+The AI coach secret is optional; without it the coach returns a clear
+"not configured" message and everything else keeps working.
+
+## 3. Deploy
+
+```powershell
+npx wrangler deploy
+```
+
+Set `SITE_URL` in `wrangler.toml` `[vars]` to the deployed URL first.
+
+## 4. Routes to check
+
+| URL | Expect |
+| --- | --- |
+| `/` | Economic Intelligence dashboard, live news |
+| `/welcome.html` | Up Skill PWA landing, registration |
+| `/skills.html` | Learning plan (needs `ADMIN_SECRET` today) |
+| `/manifest.webmanifest` | PWA manifest |
+| `/sw.js` | Service worker |
+| `/api/health` | `"ok": true` |
+| `/api/platform/health` | `{"lessons":30}` |
+
+## 5. Telegram webhook
+
+One-time, after the first deploy. **`callback_query` is required** or the lesson
+buttons do nothing:
 
 ```bash
-curl "https://api.telegram.org/botYOUR_TOKEN/setWebhook?url=YOUR_URL/api/telegram/webhook&secret_token=YOUR_WEBHOOK_SECRET&allowed_updates=%5B%22message%22,%22callback_query%22%5D"
+curl "https://api.telegram.org/botYOUR_TOKEN/setWebhook?url=https://YOUR_URL/api/telegram/webhook&secret_token=YOUR_WEBHOOK_SECRET&allowed_updates=%5B%22message%22,%22callback_query%22%5D"
 ```
 
-- [ ] Response contains `"ok": true`
-- [ ] Send `/start` to the bot
-- [ ] Try `/skills`, `/learn`, `/progress`, `/complete`
-- [ ] Confirm the scheduled slots: `wrangler.toml` shows `crons = ["0 0,11,23 * * *"]`
-      meaning 07:00, 18:00 and 06:00 Cambodia time
+Send `/start`, then `/skills`, `/learn`, `/progress`.
 
-## E2. Daily 06:00 lesson
+## 6. Run the tests
 
-- [ ] Reminders are on: send `/reminder_on` in Telegram (or use the website toggle)
-- [ ] Preview today's message without sending it:
-
-```bash
-curl -X POST "YOUR_URL/api/skills/daily/preview" -H "Authorization: Bearer YOUR_ADMIN_SECRET" -d '{}'
+```powershell
+npm run check:curriculum   # 24 offline content checks
+npm test                   # 95 legacy API checks
+npm run test:platform      # 41 multi-user checks
 ```
 
-- [ ] Preview Sunday's review without waiting: `{"weekday":0}`
-- [ ] Send it once, for real: `{"force":true}`
-- [ ] Run the scheduled path twice and confirm the second returns `"already_delivered"`:
-      `{"force":false}`
-- [ ] Confirm exactly one row for today: `curl "YOUR_URL/api/skills/deliveries" -H "Authorization: Bearer YOUR_ADMIN_SECRET"`
-- [ ] Tap **✅ Mark Complete** in Telegram and confirm progress increases
+All three must pass before you ship. If the platform suite reports 429, the
+registration rate limiter is shared across runs:
 
-## F. Skill Development first run
+```powershell
+npx wrangler d1 execute economic-intelligence-db --remote --command "DELETE FROM rate_limits"
+```
 
-- [ ] Open `https://<url>/skills.html`
-- [ ] Sign in with `ADMIN_SECRET`
-- [ ] Today's lesson loads (Day 1)
-- [ ] Tick all three routine blocks and press **Save today's progress**
-- [ ] Confirm the Progress Tracker now shows `1/30`
-- [ ] Open **Apply to My Business** and start an assignment
-- [ ] Write a Learning Journal entry
-- [ ] In Telegram send `/reminder_on`
+## 7. Manual steps you must do
 
-## G. Verification
+1. **Set the owner account password.** The account created by migration 0005 has
+   placeholder credentials. It must be replaced before anyone relies on it.
+2. **Create a GitHub fine-grained token** if you want the Web CLI to work. The
+   `gh` CLI is not required; Git Credential Manager handles the push.
+3. **Decide on translation review.** Khmer lessons are marked
+   `review_status = 'machine'` and should be human-reviewed before being
+   presented as vetted content.
+4. **Register a real contact address** in `welcome.html` in place of
+   `support@upskill.example`.
 
-- [ ] `npm test` → all checks pass (requires `ADMIN_SECRET` in `.dev.vars`)
-- [ ] `npm run check:curriculum` → 24/24
-- [ ] News dashboard still loads at `https://<url>/`
-- [ ] `npx wrangler tail` shows no errors
+## 8. Rollback
 
-## H. Things that must be done manually (cannot be automated)
+Migrations are additive, so rolling back the Worker alone is safe:
 
-1. **Authorizing Wrangler with Cloudflare** — `npx wrangler login` opens a browser.
-2. **Creating the Telegram bot** — only @BotFather can issue tokens.
-3. **Registering the webhook** — must happen once after the first deploy, and must include `callback_query` in `allowed_updates`.
-4. **Sending `/start` to the bot** — required before Telegram can deliver anything.
-5. **Knowing your numeric chat ID** — send `/start`, then run `node telegram-check.cjs`.
-6. **Enabling daily lessons** — send `/reminder_on`. Do not promise a 06:00 lesson before the cron
-   trigger is deployed *and* this is switched on.
-7. **GitHub push** — run `gh auth login` first if the CLI is not authenticated.
+```powershell
+# redeploy the previous version
+npx wrangler deployments list --name economic-intelligence-dashboard
+npx wrangler rollback [VERSION_ID] --name economic-intelligence-dashboard
+```
 
-## I. Known limitations to be aware of
+The tables from `0005` and `0006` are simply left unused. **Do not delete them**
+— they still hold the migrated personal records.
 
-- Cambodia coverage depends on publishers that allow Cloudflare Workers traffic. Khmer Times and
-  Phnom Penh Post block it, so Cambodia coverage comes from Cambodia Daily and regional feeds.
-- The 06:00 daily lesson only arrives after the Worker is deployed with the cron trigger AND
-  `/reminder_on` has been sent. Do not promise a lesson before both are done.
-- Workers Free allows 5 cron triggers per account. The project uses exactly one cron string
-  (`0 0,11,23 * * *`) which covers 07:00, 18:00 and 06:00 Cambodia time.
-- Cloudflare cron is approximate. A 06:00 lesson can arrive a minute or two either side of 06:00.
-- Personal data is single-user and protected by one shared secret. There is no per-user login.
+There is no down-migration for `0005` because SQLite cannot restore a dropped
+UNIQUE constraint. If you must revert the schema, restore from the export:
+
+```powershell
+npx wrangler d1 export economic-intelligence-db --remote --output backup.sql
+```
+
+## 9. Known limitations
+
+- Registration has no email verification and no password reset.
+- `/api/skills/*` still uses one shared secret; the personal dashboard has not
+  been moved onto real accounts yet.
+- AI coach, admin content management, multi-user Telegram linking and
+  subscriptions are schema-ready but not implemented.

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101b2d">
+<meta name="description" content="Up Skill PWA - bilingual professional skills learning. Learn, practise, apply, measure, improve.">
+<title>Up Skill PWA | Practical skills that move your business</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+:root{--bg:#f3f6fb;--panel:#fff;--ink:#172338;--muted:#6f7b8f;--line:#e3e9f2;--navy:#101b2d;--blue:#2563eb;--teal:#0f9f91;--red:#c83f4d;--green:#13836c;--shadow:0 8px 30px #1723380b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1060px;margin:0 auto;padding:0 18px}
+header.top{background:var(--navy);color:#fff;padding:13px 0;position:sticky;top:0;z-index:20}
+header.top .wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;text-decoration:none;color:#fff}
+.logo img{width:34px;height:34px;border-radius:9px}
+nav.top{margin-left:auto;display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+nav.top a{color:#c8d2e1;text-decoration:none;font-size:14px}
+nav.top a:hover{color:#fff}
+.lang{display:flex;gap:5px}
+.lang button{background:transparent;border:1px solid #3d4c66;color:#c8d2e1;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:13px;font-weight:700}
+.lang button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.hero{background:linear-gradient(120deg,#101b2d,#1c4971 62%,#176f78);color:#fff;padding:52px 0}
+.hero h1{font-size:clamp(27px,5vw,42px);margin:0 0 14px;letter-spacing:-1.3px;line-height:1.15}
+.hero p{font-size:clamp(15px,2.2vw,17px);color:#d3e2f2;max-width:640px;margin:0 0 22px}
+.cta{display:flex;gap:11px;flex-wrap:wrap}
+.btn{border:0;border-radius:11px;padding:13px 22px;font-weight:700;font-size:15px;cursor:pointer;text-decoration:none;display:inline-block}
+.btn.primary{background:var(--teal);color:#fff}
+.btn.ghost{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25)}
+.btn.blue{background:var(--blue);color:#fff}
+section{padding:42px 0}
+section.alt{background:#fff}
+h2{font-size:clamp(21px,3vw,27px);margin:0 0 8px;letter-spacing:-.6px}
+.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+.grid{display:grid;gap:14px}
+.grid.five{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.grid.three{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:19px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 7px;font-size:15px}
+.card p{margin:0;font-size:13.5px;color:#4a5870}
+.sk b{display:block;font-size:15px;margin-bottom:5px}
+.sk .small{margin-top:8px}
+.tabs{display:flex;gap:8px;margin-bottom:18px;max-width:420px}
+.tabs button{flex:1;border:1px solid var(--line);background:#fff;border-radius:11px;padding:11px;font-weight:700;cursor:pointer;font-size:14px}
+.tabs button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+form.auth{max-width:420px}
+label{display:block;margin-bottom:13px}
+label span{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+input,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font:inherit;background:#fff;color:inherit}
+input:focus,select:focus{outline:0;border-color:var(--blue);box-shadow:0 0 0 3px #2563eb1a}
+.msg{padding:11px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;display:none;max-width:460px}
+.msg.err{background:#fff0f1;color:var(--red);border:1px solid #f6cdd2;display:block}
+.msg.ok{background:#e7f7f1;color:var(--green);border:1px solid #bfe6d8;display:block}
+.small{font-size:12px;color:var(--muted)}
+[hidden]{display:none!important}
+footer{background:var(--navy);color:#8d9cb4;padding:26px 0;font-size:12px;margin-top:16px}
+footer a{color:#c8d2e1}
+@media(max-width:640px){.hero{padding:34px 0}nav.top a{display:none}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="logo" href="/welcome.html"><img src="/icons/icon-192.png" alt=""><span>Up Skill PWA</span></a>
+  <nav class="top">
+    <a href="#skills">Skills</a><a href="#program">Program</a><a href="#how">How it works</a>
+    <a href="#faq">FAQ</a><a href="/skills.html">My learning</a><a href="/">News</a>
+    <span class="lang"><button id="btnEn" class="on">EN</button><button id="btnKm">ខ្មែរ</button></span>
+  </nav>
+</div></header>
+
+<div class="hero"><div class="wrap">
+  <h1 id="h-title"></h1>
+  <p id="h-sub"></p>
+  <div class="cta">
+    <a class="btn primary" href="#join" id="cta-start"></a>
+    <a class="btn ghost" href="#program" id="cta-program"></a>
+  </div>
+</div></div>
+
+<section id="how"><div class="wrap">
+  <h2 id="how-h"></h2><p class="sub" id="how-s"></p>
+  <div class="grid five">
+    <div class="card"><h3>Learn</h3><p>One concept, plain language, ten minutes.</p></div>
+    <div class="card"><h3>Practise</h3><p>A real business case, not a toy example.</p></div>
+    <div class="card"><h3>Apply</h3><p>One action at your job the same day.</p></div>
+    <div class="card"><h3>Measure</h3><p>Quizzes and applied work, tracked separately.</p></div>
+    <div class="card"><h3>Improve</h3><p>Weak areas surface and get scheduled next.</p></div>
+  </div>
+</div></section>
+
+<section id="skills" class="alt"><div class="wrap">
+  <h2 id="sk-h"></h2><p class="sub" id="sk-s"></p>
+  <div class="grid five" id="skills-grid"></div>
+</div></section>
+
+<section id="program"><div class="wrap">
+  <h2 id="prog-h"></h2><p class="sub" id="prog-s"></p>
+  <div class="grid three" id="prog-grid"></div>
+</div></section>
+
+<section id="join" class="alt"><div class="wrap">
+  <h2 id="join-h"></h2><p class="sub" id="join-s"></p>
+  <div class="tabs">
+    <button class="on" id="tabSignUp">Create account</button>
+    <button id="tabSignIn">Sign in</button>
+  </div>
+  <div id="msg" class="msg"></div>
+
+  <form class="auth" id="signupForm">
+    <label><span>Full name</span><input id="suName" autocomplete="name"></label>
+    <label><span>Email</span><input id="suEmail" type="email" autocomplete="email" required></label>
+    <label><span>Password</span><input id="suPass" type="password" autocomplete="new-password" required>
+      <small class="small">At least 8 characters, with a letter and a number or symbol.</small></label>
+    <label><span>Preferred language</span><select id="suLocale"><option value="en">English</option><option value="km">ខ្មែរ (Khmer)</option></select></label>
+    <label><span>Your role</span><input id="suRole" placeholder="Business Development Manager"></label>
+    <label><span>Study time per day</span><select id="suMinutes">
+      <option value="15">15 minutes</option><option value="30" selected>30 minutes</option>
+      <option value="45">45 minutes</option><option value="60">60 minutes</option></select></label>
+    <label><span>What do you want to improve?</span><input id="suGoals" placeholder="Negotiation, reporting, leading a team"></label>
+    <button class="btn blue" type="submit" style="width:100%">Create my account</button>
+  </form>
+
+  <form class="auth" id="signinForm" hidden>
+    <label><span>Email</span><input id="siEmail" type="email" autocomplete="email" required></label>
+    <label><span>Password</span><input id="siPass" type="password" autocomplete="current-password" required></label>
+    <button class="btn blue" type="submit" style="width:100%">Sign in</button>
+  </form>
+</div></section>
+
+<section id="faq"><div class="wrap">
+  <h2 id="faq-h"></h2><div class="grid" id="faq-list"></div>
+</div></section>
+
+<footer><div class="wrap">
+  <p><b>Up Skill PWA</b> - Khmer and English professional skills learning.</p>
+  <p><a href="/">Economic Intelligence</a> · <a href="/skills.html">My learning</a> · <a href="mailto:support@upskill.example">Support</a></p>
+  <p class="small">Privacy: your journal, assignments and progress are visible only to your account and can be deleted. AI coaching is opt-in and labelled as AI-generated. Lesson completion shows what you studied, not what you can do.</p>
+  <p class="small">Terms: illustrative business examples are written for teaching and are not verified market data. Verify material claims at the original source before acting on them.</p>
+</div></footer>
+
+<script>
+const $=id=>document.getElementById(id);
+
+const I18N={
+ en:{title:'Build skills that move your business.',
+  sub:'Thirty minutes a day. Bilingual in Khmer and English. Practical lessons you apply at work the same day, with an AI coach that adapts to your level.',
+  start:'Start free',program:'See the 30-day plan',
+  howH:'The learning cycle',howS:'Not a video library. A loop that produces evidence you improved.',
+  skH:'Five core skills',skS:'Every lesson maps to one of these. Each has beginner, intermediate and advanced paths over time.',
+  progH:'The 30-day program',progS:'Thirty unique lessons rotating across the five skills, plus Saturday application and a Sunday review.',
+  joinH:'Start your account',joinS:'Free. No card. Your progress stays private to you.',faqH:'Questions'},
+ km:{title:'បង្កើតជំនាញដែលធ្វើឲ្យអ្នកជំនាញលូតទ្រ',
+  sub:'ដូរចុល្លាំងាយពេលមួយថ្ងៃ។ ជាភាសាខ្មែរ និងភាសាអង់គ្លេស។ មេរៀនអនុវត្តដោយផ្ទាល់ ដែលអ្នកអាចយកទៅអនុវត្តនៅការងារបាត់ត្រាន់ថ្ងៃដែរដោយខ្លួន។ មាន AI ជួយប្រឹក្សាដែលកែខ្លឹងតាមកម្រិតរបស់អ្នក។',
+  start:'ចាប់ផ្តើមឥតគិតថ្លៃ',program:'មើលផែនទី ៣០ ថ្ងៃ',
+  howH:'វដ្តជីវិតការរៀនសូត្រ',howS:'មិនមែនគឺតាមវីដេអ៉ុងប៉ុណ្ណោះទេ។ វាជារង្វិលដែលបង្កើតភស្តុតាងនៃការកែលម្អ។',
+  skH:'ជំនាញស្នូលប្រាំ',skS:'មេរៀនគ្រប់មេរៀនស្តាល់ជាមួយជំនាញទាំងនេះ។ ថ្ងៃនីមួយៗមានកម្រិតចាប់ផ្តើម មធ្យម និងខ្ពួល។',
+  progH:'កម្មវិធីសិក្សា ៣០ ថ្ងៃ',progS:'មេរៀនចុល្លាំង ៣០ ប្រភេទឆ្លងឆ្លោះជំនាញទាំងប្រាំ បូករួមការអនុវត្តនៅថ្ងៃសៅរ៍ និងការពិនិត្យនៅថ្ងៃអាទិត្យ។',
+  joinH:'បង្កើតគណនីរបស់អ្នក',joinS:'ឥតគិតថ្លៃ។ មិនត្រូវកាត់កន្ត្រង់ទេ។ វឌ្ឍនភាពរបស់អ្នកនៅតែឯកជន។',faqH:'សំណួរ'}
+};
+
+function setLang(l){
+  localStorage.setItem('upskill_lang',l);
+  document.documentElement.lang=l;
+  $('btnEn').classList.toggle('on',l==='en');
+  $('btnKm').classList.toggle('on',l==='km');
+  const t=I18N[l];
+  $('h-title').textContent=t.title;$('h-sub').textContent=t.sub;
+  $('cta-start').textContent=t.start;$('cta-program').textContent=t.program;
+  $('how-h').textContent=t.howH;$('how-s').textContent=t.howS;
+  $('sk-h').textContent=t.skH;$('sk-s').textContent=t.skS;
+  $('prog-h').textContent=t.progH;$('prog-s').textContent=t.progS;
+  $('join-h').textContent=t.joinH;$('join-s').textContent=t.joinS;
+  $('faq-h').textContent=t.faqH;
+}
+$('btnEn').onclick=()=>setLang('en');
+$('btnKm').onclick=()=>setLang('km');
+
+$('skills-grid').innerHTML=[
+ ['Strategic Thinking','Critical thinking, root cause, decisions, risk, prioritisation.'],
+ ['Sales and Revenue Growth','Funnels, conversion, negotiation, pricing, retention, forecasting.'],
+ ['Leadership and Management','Delegation, coaching, feedback, motivation, conflict, reviews.'],
+ ['Financial and Data Analysis','Revenue, margin, cash flow, budgets, KPIs, forecasting.'],
+ ['Digital and AI Skills','AI literacy, prompts, automation, analytics, APIs, cloud.']
+].map(([n,s])=>`<div class="card sk"><b>${n}</b><span class="small">6 lessons in the 30-day program</span><p class="small">${s}</p></div>`).join('');
+
+$('prog-grid').innerHTML=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+ .map((d,i)=>`<div class="card"><h3>${d}</h3><p>${['Strategic Thinking','Sales and Revenue Growth','Leadership and Management','Financial and Data Analysis','Digital and AI Skills','Practical application','Weekly review and quiz'][i]}</p></div>`).join('');
+
+$('faq-list').innerHTML=[
+ ['Is it really free?','Yes. No card is required. If paid tiers are added later they will be announced clearly before anything is charged.'],
+ ['Do I need to be fluent in English?','No. The program is available in Khmer and English, and you can switch at any time without losing progress.'],
+ ['How long does a day take?','About 30 minutes: ten to learn, ten to practise, ten to apply.'],
+ ['Will a lesson be marked done if I only read it?','No. A day completes when you finish the learn, practise and apply steps.'],
+ ['Is my data private?','Yes. Your journal, assignments and progress are visible only to your account.'],
+ ['Does it work offline?','The app installs to your home screen and keeps the shell available offline.'],
+ ['How does the AI coach work?','It uses your own recorded progress to suggest what to study next. It is opt-in, labelled as AI-generated, and does not invent your results.'],
+ ['Do I get Telegram lessons?','Yes, once you connect Telegram. Daily lessons arrive at 06:00 Cambodia time if you enable reminders.']
+].map(([q,a])=>`<div class="card"><h3>${q}</h3><p>${a}</p></div>`).join('');
+
+function tab(su){
+ $('signupForm').hidden=!su;$('signinForm').hidden=su;
+ $('tabSignUp').classList.toggle('on',su);$('tabSignIn').classList.toggle('on',!su);
+ $('msg').className='msg';
+}
+$('tabSignUp').onclick=()=>tab(true);
+$('tabSignIn').onclick=()=>tab(false);
+function show(k,t){const m=$('msg');m.className='msg '+k;m.textContent=t;}
+
+async function post(p,b){
+ const r=await fetch(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});
+ const d=await r.json().catch(()=>({}));
+ if(!r.ok)throw new Error(d.error||'Request failed ('+r.status+')');
+ return d;
+}
+$('signupForm').addEventListener('submit',async e=>{
+ e.preventDefault();show('','');
+ try{
+  await post('/api/auth/register',{email:$('suEmail').value,password:$('suPass').value,display_name:$('suName').value,
+   locale:$('suLocale').value,occupation:$('suRole').value,daily_minutes:Number($('suMinutes').value),goals:$('suGoals').value});
+  show('ok','Account created. Opening your learning plan…');
+  setTimeout(()=>location.href='/skills.html',900);
+ }catch(err){show('err',err.message)}
+});
+$('signinForm').addEventListener('submit',async e=>{
+ e.preventDefault();show('','');
+ try{await post('/api/auth/login',{email:$('siEmail').value,password:$('siPass').value});location.href='/skills.html'}
+ catch(err){show('err',err.message)}
+});
+
+setLang(localStorage.getItem('upskill_lang')||'en');
+
+fetch('/api/auth/me').then(r=>r.ok?r.json():null).then(d=>{
+ if(d&&d.authenticated){
+  $('signupForm').hidden=true;$('signinForm').hidden=true;
+  $('join-h').textContent='You are signed in';
+  show('ok','Signed in as '+d.user.email+' — open your learning plan.');
+ }
+}).catch(()=>{});
+
+if('serviceWorker' in navigator){
+ window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
