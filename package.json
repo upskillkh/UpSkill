@@ -13,6 +13,9 @@
     "tail": "wrangler tail",
     "test": "node tests/api.test.mjs",
     "test:platform": "node tests/platform.test.mjs",
+    "test:platform2027": "node tests/platform2027.test.mjs",
+    "test:all": "node tests/curriculum.test.mjs && node tests/api.test.mjs && node tests/platform.test.mjs && node tests/platform2027.test.mjs",
+    "db:reset-limits": "wrangler d1 execute economic-intelligence-db --remote --command \"DELETE FROM rate_limits\"",
     "check:curriculum": "node tests/curriculum.test.mjs",
     "icons": "node make-icons.cjs"
   },

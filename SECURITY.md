@@ -71,6 +71,69 @@ sign-in form is still present in `public/skills.html` and works unchanged. The
 test suites assert the open-mode policy, so update the three assertions named in
 the commit that introduced it when you flip it back.
 
+## AI Learning Coach
+
+- The provider key (`AI_API_KEY`) is a Cloudflare **secret**. It is read only
+  from the Worker environment and is never returned to a client, written to a
+  log, or included in an error. `GET /api/platform/ai/status` reports only
+  whether a key exists and which model, and it never calls the provider, so it
+  cannot be used to probe or spend quota.
+- **When no key is configured the coach does not pretend.** It returns a
+  deterministic answer assembled from the learner's own records and sets
+  `mode: "fallback"` and `isAI: false`. The UI states this in the learner's
+  face. There is no code path that produces fabricated AI output.
+- If a provider call fails or times out (20 s), the coach degrades to the same
+  fallback rather than surfacing an error or an empty answer.
+- Provider error bodies are never logged, because some providers echo request
+  headers back in the error and that would put the key in the logs.
+- Learner input is stripped of control characters, capped at 2,000 characters,
+  and wrapped in `<learner_input>` delimiters. The system prompt states
+  explicitly that the wrapped text is data and must never be followed as an
+  instruction.
+- Cost control: every call is counted in `ai_usage` per user per day and capped
+  by the user's plan allowance. The remaining quota is returned to the client.
+- Consent: a coach exchange is only written to `coach_sessions` when the
+  request explicitly sends `consent: true`. History is readable and deletable by
+  the owner of the account.
+- **The model never judges ability.** Proficiency is computed in SQL from
+  completed lessons, quiz answers and lab submissions. The assessment caveat is
+  returned to the learner in their own language.
+
+## Telegram
+
+- The bot is restricted to `ALLOWED_CHAT_ID`. Unknown chats receive a refusal.
+- The webhook endpoint rejects any request whose `x-telegram-secret` does not
+  match `TELEGRAM_WEBHOOK_SECRET`.
+- Learning commands are consulted **only after** every pre-existing news
+  command, and return `null` for anything they do not own, so no existing
+  command's behaviour can change. A failure inside a learning command returns a
+  message and leaves the news commands working.
+- Account linking uses a short single-use code (6 characters from a 32-symbol
+  alphabet with no ambiguous `0/O/1/I`). A code is invalidated on use and is
+  scoped to one account.
+- `/unlink` clears the chat binding only. It does not touch the account.
+- **Multi-user broadcast delivery is NOT enabled.** `telegram_links` and
+  `notification_deliveries` exist and are enforced by a
+  `UNIQUE(user_id, kind, scheduled_for)` constraint so duplicate sends are
+  structurally impossible, but the scheduled job still delivers to the owner
+  chat only. Enabling fan-out is a deliberate next step, not a default.
+
+## Data integrity
+
+- Migrations 0001-0006 pre-date this work and are untouched. Migrations 0007
+  and 0008 are **additive only**: they create new tables and add columns to
+  `skills`. No existing table is dropped, renamed or rewritten, so every stored
+  news item and every learning record survives.
+- Verified after applying: 617+ stories, 30 `skill_lessons`, 30 `lessons`, 60
+  `lesson_translations`, all users, assignments and journal entries intact.
+- News count assertions in the test suites use `>= 617`, not `== 617`. The live
+  RSS collector adds stories continuously, so an exact-count assertion was a
+  latent test failure that had nothing to do with the code under test.
+- **Migration 0005 has no down-migration.** It rebuilds four tables to change a
+  UNIQUE constraint, which SQLite cannot do with ALTER. Rolling that back means
+  restoring from the D1 export taken before this work
+  (`backup/pre-2027-*/d1-full.sql`).
+
 ## Abuse controls
 
 | Action | Limit |

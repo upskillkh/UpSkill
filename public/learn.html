@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Up Skill — Future Skills 2027-2031</title>
+<meta name="description" content="Bilingual (Khmer/English) learning platform for the skills needed between 2027 and 2031: 12 skill categories, four levels, a five-year roadmap and a practical Business Lab.">
+<meta name="theme-color" content="#101b2d">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+:root{
+  --ink:#101b2d; --ink2:#1b2b45; --line:#e3e8f0; --muted:#5d6b82;
+  --bg:#f4f6fa; --card:#fff; --accent:#2f6fed; --accent2:#12b981;
+  --warn:#b45309; --warnbg:#fffbeb; --line2:#fde68a; --err:#b42318;
+  --r:14px; --max:1080px;
+}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Khmer",sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--ink);color:#fff;padding:14px 0;position:sticky;top:0;z-index:20;box-shadow:0 2px 12px #0002}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 18px}
+.hrow{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.brand{font-weight:800;letter-spacing:-.02em;font-size:19px}
+.brand span{color:#7ee2c0}
+.sub{color:#c3cede;font-size:13px;margin-top:2px}
+.lang{margin-inline-start:auto;display:flex;gap:6px}
+.lang button{background:#ffffff18;color:#fff;border:1px solid #ffffff30;border-radius:999px;padding:6px 14px;font-size:13px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:#fff;color:var(--ink);font-weight:700}
+nav{display:flex;gap:4px;overflow-x:auto;padding:10px 0 0;scrollbar-width:thin}
+nav button{flex:0 0 auto;background:none;border:0;border-bottom:3px solid transparent;color:#c3cede;padding:9px 14px;font-size:14px;cursor:pointer}
+nav button[aria-current="true"]{color:#fff;border-bottom-color:#7ee2c0;font-weight:700}
+main{padding:22px 0 60px}
+h1{font-size:26px;margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:19px;margin:26px 0 12px}
+h3{font-size:16px;margin:0 0 6px}
+p{margin:0 0 10px}
+.lede{color:var(--muted);max-width:62ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin:0 0 12px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.cat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px}
+.icon{width:38px;height:38px;border-radius:10px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;margin-bottom:9px;letter-spacing:.02em}
+.tag{display:inline-block;font-size:11px;padding:3px 9px;border-radius:999px;background:#eef2f8;color:var(--muted);font-weight:600;margin:2px 4px 2px 0}
+.tag.em{background:var(--warnbg);color:var(--warn);border:1px solid var(--line2)}
+.tag.ok{background:#ecfdf5;color:#047857}
+.tag.lv{background:#eef4ff;color:var(--accent)}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;background:var(--warnbg);color:var(--warn);border:1px solid var(--line2);font-weight:700}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:9px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn:hover{background:#255ed0}
+.btn.sec{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+textarea,input,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;font:inherit;background:#fff;color:var(--ink)}
+textarea{min-height:110px;resize:vertical}
+label{display:block;margin:10px 0 4px;font-size:13px;font-weight:600;color:var(--muted)}
+.status{padding:10px 12px;border-radius:9px;font-size:14px;margin:10px 0}
+.status.err{background:#fef2f2;color:var(--err);border:1px solid #fecaca}
+.status.ok{background:#ecfdf5;color:#047857;border:1px solid #a7f3d0}
+.status.info{background:#eef4ff;color:var(--accent);border:1px solid #c7d9fe}
+.mut{color:var(--muted);font-size:13px}
+.spin{display:inline-block;width:15px;height:15px;border:2px solid #ffffff55;border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.metric{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:14px;text-align:center}
+.metric b{display:block;font-size:25px;letter-spacing:-.02em}
+.kh{font-family:"Noto Sans Khmer","Khmer OS",system-ui,sans-serif}
+footer{border-top:1px solid var(--line);padding:20px 0;color:var(--muted);font-size:13px;background:#fff}
+a{color:var(--accent)}
+details{margin:8px 0}
+summary{cursor:pointer;font-weight:600;font-size:14px}
+.rubric li{margin:4px 0;font-size:14px}
+@media(max-width:560px){h1{font-size:22px}.sub{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="hrow">
+      <div>
+        <div class="brand">UP <span>SKILL</span></div>
+        <div class="sub" id="hdrSub">Future Skills 2027-2031</div>
+      </div>
+      <div class="lang" role="group" aria-label="Language">
+        <button id="btnEn" aria-pressed="true">EN</button>
+        <button id="btnKm" aria-pressed="false">ខ្មែរ</button>
+      </div>
+    </div>
+    <nav id="nav" aria-label="Sections"></nav>
+  </div>
+</header>
+
+<main><div class="wrap">
+  <div id="view"><p class="card"><span class="spin"></span></p></div>
+</div></main>
+
+<footer><div class="wrap" id="foot"></div></footer>
+
+<script>
+const $=(id)=>document.getElementById(id);
+const esc=(s)=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+let LOCALE=localStorage.getItem("upskill_locale")||"en";
+let ME=null;
+let CAT=null;
+let TAB="cats";
+
+// --- Bilingual strings -----------------------------------------------------
+const T={
+ en:{hdr:"Future Skills 2027-2031",tabs:{cats:"Skill Categories",path:"5-Year Roadmap",lab:"Business Lab",assess:"Skill Check",coach:"AI Coach",me:"My Progress",acct:"Account"},
+  foot:"Up Skill · Khmer24 Growth System · Cloudflare Workers + D1",
+  signin:"Sign in",signup:"Create account",out:"Sign out",unlocked:"This dashboard is unlocked — no sign-in needed.",
+  signinFirst:"Sign in to save your progress.",email:"Email",password:"Password",have:"Have an account? Sign in.",need:"No account? Create one free.",
+  avail:"Available now",planned:"Structure ready · lessons coming",emerging:"Emerging — may be speculative",
+  lvl:"Level",weeks:"weeks",prereq:"Prereqs",objectives:"You will be able to",rubric:"Scoring rubric",
+  submit:"Submit work",attempt:"Attempt",noai:"AI is not configured yet, so this answer is built from your own records — it is not an AI response.",
+  aiOn:"Answered by AI.",aiCap:"Requests left today",ask:"Ask your coach",consent:"Save this exchange to my history",
+  export:"Download my data",del:"Delete my account",dele:"This permanently removes your account and everything in it. Type DELETE to confirm.",
+  never:"Sign in to use this.",streak:"Day streak",lessons:"Lessons done",labs:"Lab work",correct:"Quiz correct"},
+ km:{hdr:"ជំនាញអនាគត ២០២៧-២០៣១",tabs:{cats:"ប្រភេទជំនាញ",path:"ផែនការ ៥ ឆ្នាំ",lab:"មន្ទីពាណិជ្ជកម្ម",assess:"ការវាយតម្លៃជំនាញ",coach:"គ្រូសម្ភាសន៍ AI",me:"វឌ្ឍនភាពរបស់ខ្ញុំ",acct:"គណនី"},
+  foot:"Up Skill · ប្រព័ន្ធការលូទាន់ Khmer24 · Cloudflare Workers + D1",
+  signin:"ចូល",signup:"បង្កើតគណនី",out:"ចាកចេញ",unlocked:"ផ្ទាំងនេះបើកចំហក — មិនចាំបាច់ចូលទេ។",
+  signinFirst:"ចូលគណនីដើម្បីរក្សាទុកវឌ្ឍនភាព។",email:"អ៊ីមែល",password:"ពាក្យសម្ងាត់",have:"មានគណនី? ចូលគណនី។",need:"មិនមានគណនី? បង្កើតឥតគិតថ្លៃ។",
+  avail:"អាចរៀនឥឡូវនេះ",planned:"រចនារួចរាល់ · មេទាច់មកដល់",emerging:"ទំនាន់ថ្មី — អាចជាសម្រាប់ភ្លាមៗ",
+  lvl:"កម្រិត",weeks:"សប្តាហ៍",prereq:"លក្ខខណ្ឌមុន",objectives:"អ្នកនឹងអាច",rubric:"ព្យាករណ៍វាយតម្លៃ",
+  submit:"ដាក់ការងារ",attempt:"ដំណើរការទី",noai:"AI មិនត្រូវបានកំណត់នៅឡើយទេ ដូច្នេះចម្លើយនេះសាងសង់ពីកំណត់ត្រារបស់អ្នក — មិនមែនជាចម្លើយពី AI ទេ។",
+  aiOn:"ឆ្លើយដោយ AI។",aiCap:"សំណួរដែលនៅសល់ថ្ងៃនេះ",ask:"សួរគ្រូសម្ភាសន៍",consent:"រក្សាទុកការសន្ទនានេះក្នុងប្រវត្តិរបស់ខ្ញុំ",
+  export:"ទាញយកទិន្នន័យរបស់ខ្ញុំ",del:"លុបគណនីរបស់ខ្ញុំ",dele:"វានឹងលុបគណនី និងអ្វីៗទាំងអស់ក្នុងនោះដោយជានិចទ័រ។ សរសេរ DELETE ដើម្បីបញ្ជាក់។",
+  never:"ចូលគណនីដើម្បីប្រើវា។",streak:"ស្មុគបច្ចាក់",lessons:"ការណ៍បានបញ្ចប់",labs:"ការងារមន្ទីពាណិជ្ជ",correct:"សំណួរចម្លើយត្រឹមត្រូវ"}
+};
+const t=(...k)=>k.reduce((a,b)=>a?.[b],T[LOCALE])??k[k.length-1];
+
+async function api(path,{method="GET",body}={}){
+  const r=await fetch(path,{method,credentials:"same-origin",headers:body?{"content-type":"application/json"}:{},body:body?JSON.stringify(body):undefined});
+  let d={}; try{d=await r.json()}catch{}
+  if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+  return d;
+}
+const setStatus=(kind,text)=>{$("view").insertAdjacentHTML("afterbegin",`<div class="status ${kind}">${esc(text)}</div>`);};
+
+async function boot(){
+  try{ const m=await api("/api/auth/me"); ME=m.authenticated?m.user:null; }catch{ ME=null; }
+  CAT=await api("/api/catalog?locale="+LOCALE);
+  render(); draw();
+}
+
+// --- nav --------------------------------------------------------------------
+function render(){
+  $("hdrSub").textContent=t("hdr");
+  $("foot").innerHTML=esc(t("foot"))+' &middot; <a href="/skills.html">30-Day Program</a> &middot; <a href="/">Economic Intelligence</a>';
+  $("nav").innerHTML=Object.entries(t("tabs")).map(([k,label])=>
+    `<button data-t="${k}" ${TAB===k?'aria-current="true"':''}>${esc(label)}</button>`).join("");
+  $("nav").querySelectorAll("button").forEach(b=>b.onclick=()=>{TAB=b.dataset.t;render();draw();});
+  document.documentElement.lang=LOCALE==="km"?"km":"en";
+  document.body.classList.toggle("kh",LOCALE==="km");
+}
+
+// Offline support is registered here only. The repair routine on the other
+// pages drops stale workers; this one re-arms a current worker when a page is
+// genuinely visited online.
+if('serviceWorker' in navigator){
+  addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}
+
+async function draw(){
+  const v=$("view"); v.innerHTML='<p class="card"><span class="spin"></span></p>';
+  try{
+    if(TAB==="cats") return drawCats();
+    if(TAB==="path") return drawPath();
+    if(TAB==="lab") return drawLab();
+    if(TAB==="assess") return drawAssess();
+    if(TAB==="coach") return drawCoach();
+    if(TAB==="me") return drawMe();
+    if(TAB==="acct") return drawAcct();
+  }catch(e){ v.innerHTML=`<div class="status err">${esc(e.message)}</div>`; }
+}
+
+function drawCats(){
+  $("view").innerHTML=`
+   <h1>${esc(t("tabs").cats)}</h1>
+   <p class="lede">${LOCALE==="km"?"ជំនាញ ១២ ប្រភេទសម្រាប់រយៈពេល ២០២៧ ដល់ ២០៣១។ ប្រភេទមួយផ្សេងទៀតអាចនៅក្បៅរហូត មិនមែនជាការដាក់ការនៅឡើយទេ។":"Twelve skill categories for 2027-2031. Start anywhere — this is a guide, not a restriction."}</p>
+   <div class="grid">${CAT.categories.map(c=>`
+     <div class="cat">
+       <div class="icon">${esc(c.icon||"•")}</div>
+       <h3>${esc(c.name)}</h3>
+       <p class="mut">${esc(c.summary)}</p>
+       ${c.established?"":'<span class="badge">'+esc(t("emerging"))+'</span>'}
+       ${c.skills.map(s=>`
+         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
+           <strong style="font-size:14px">${esc(s.name)}</strong>
+           <div>${s.available?`<span class="tag ok">${esc(t("avail"))} · ${s.lessonCount}</span>`:`<span class="tag">${esc(t("planned"))}</span>`}
+           <span class="tag lv">${esc(s.level)}</span></div>
+           ${s.established?"":'<span class="tag em">'+esc(t("emerging"))+'</span>'}
+           <p class="mut" style="margin:6px 0 0">${esc(s.description)}</p>
+         </div>`).join("")}
+     </div>`).join("")}</div>`;
+}
+
+function drawPath(){
+  $("view").innerHTML=`
+   <h1>${esc(t("tabs").path)}</h1>
+   <p class="lede">${LOCALE==="km"?"ការណែនាំជាឆ្នាំតាមមួយ។ អ្នកអាចជ្រើសផ្លូវផ្សេងដោយសេរី ឬចាប់ផ្តើមនៅពេលណាមួយ។":"A recommended year at a time. Follow your own order, or start whenever you like."}</p>
+   ${CAT.paths.map(p=>`
+     <div class="card">
+       <h3>${esc(p.title)} ${p.year?`<span class="tag lv">${esc(p.level)}</span>`:""}</h3>
+       <p class="mut">${esc(p.summary)}</p>
+       <div>${p.skillKeys.map(k=>{
+          const s=CAT.categories.flatMap(c=>c.skills).find(x=>x.key===k);
+          return s?`<span class="tag">${esc(s.name)}</span>`:`<span class="tag">${esc(k)}</span>`;
+       }).join("")}</div>
+     </div>`).join("")}
+   <h2>${LOCALE==="km"?"កម្រិតទាំងបីរបី":"The four levels"}</h2>
+   <div class="grid">${CAT.levels.map(l=>`<div class="cat"><span class="tag lv">${esc(l.key)}</span><h3 style="margin-top:6px">${esc(l.name)}</h3><p class="mut">${esc(l.summary)}</p></div>`).join("")}</div>`;
+}
+
+async function drawLab(){
+  const {exercises}=await api("/api/lab/exercises?locale="+LOCALE);
+  $("view").innerHTML=`
+   <h1>${esc(t("tabs").lab)}</h1>
+   <p class="lede">${LOCALE==="km"?"ប្រតិបត្តិការពិតលង។ ដាក់ការងាររបស់អ្នក និងមើលព្យាករណ៍វាយតម្លៃមុនសិន។":"Real exercises. Submit your work and see the scoring rubric first."}</p>
+   ${exercises.map(e=>`
+     <div class="card">
+       <h3>${esc(e.title)}</h3>
+       <div><span class="tag lv">${esc(e.level)}</span><span class="tag">${esc(e.category)}</span><span class="tag">${e.estMinutes} min</span></div>
+       <p class="mut">${esc(e.brief)}</p>
+       <details><summary>${LOCALE==="km"?"ការណែនាំ":"Instructions"}</summary>
+         <p>${esc(e.instructions)}</p>
+         ${e.exampleData?`<p class="mut"><strong>${LOCALE==="km"?"ទិន្នន័យឧទាហរណ៍":"Example data"}:</strong> ${esc(e.exampleData)}</p>`:""}
+         <p class="mut"><strong>${LOCALE==="km"?"លទ្ធផលរង់ដែលរង់ចាំ":"Expected output"}:</strong> ${esc(e.expected)}</p>
+       </details>
+       <details><summary>${esc(t("rubric"))}</summary><ul class="rubric">${e.rubric.map(r=>`<li>${esc(r.criterion)} — <strong>${r.points}/${r.max}</strong></li>`).join("")}</ul></details>
+       ${ME?`<label>${LOCALE==="km"?"ការងាររបស់អ្នក":"Your work"}</label>
+       <textarea id="ans-${e.key}" placeholder="..."></textarea>
+       <div style="margin-top:10px"><button class="btn" data-sub="${e.key}">${esc(t("submit"))}</button> <span class="mut" id="ok-${e.key}"></span></div>`
+      :`<p class="status info">${esc(t("signinFirst"))}</p>`}
+     </div>`).join("")}`;
+  $("view").querySelectorAll("[data-sub]").forEach(b=>b.onclick=async()=>{
+    const k=b.dataset.sub; b.disabled=true;
+    try{
+      const answer=$("ans-"+k).value;
+      if(!answer.trim()) throw new Error(LOCALE==="km"?"សូមសរសេរចម្លើយជាមុន":"Please write your answer first");
+      const r=await api("/api/platform/lab/submit",{method:"POST",body:{key:k,answer}});
+      $("ok-"+k).textContent=esc(t("attempt")+" "+r.attempt+" ✓");
+      b.disabled=false; $("ans-"+k).value="";
+    }catch(e){ $("ok-"+k).textContent="✗ "+e.message; b.disabled=false; }
+  });
+}
+
+async function drawAssess(){
+  const {questions}=await api("/api/platform/assessment/questions?locale="+LOCALE);
+  $("view").innerHTML=`
+   <h1>${esc(t("tabs").assess)}</h1>
+   <p class="lede">${LOCALE==="km"?"សំណួរស្រាប់រំភ្លាម ប្រា។។ វានឹងណែនាំជំនាញដែលគ្នាបានចាប់ផ្តើម ប៉ុន្តែមិនប្រាប់អ្នកថាអ្នកខ្លាំងអ្វី ទេ។":"A short diagnostic that suggests where to start. It does not tell you what you are capable of."}</p>
+   ${questions.map((q,i)=>`<div class="card"><strong>${i+1}. ${esc(q.text)}</strong>
+     <label>${LOCALE==="km"?"ចម្លើយ":"Answer"}</label>
+     <select id="q-${q.id}"><option value="">—</option><option value="a">A</option><option value="b">B</option><option value="c">C</option><option value="d">D</option></select>
+   </div>`).join("")}
+   ${ME?'<button class="btn" id="doAssess">'+esc(LOCALE==="km"?"ដាក់ការវាយតម្លៃ":"Score it")+'</button><div id="assessOut"></div>':'<p class="status info">'+esc(t("signinFirst"))+'</p>'}`;
+  const b=$("doAssess"); if(b) b.onclick=async()=>{
+    b.disabled=true; const answers={};
+    questions.forEach(q=>{const v=$("q-"+q.id).value; if(v) answers[q.id]=v;});
+    if(!Object.keys(answers).length) return setStatus("err",LOCALE==="km"?"ឆ្លើយសំណួរយ៉ាងតិចមួយ។":"Please answer at least one question.");
+    try{
+      const r=await api("/api/platform/assessment",{method:"POST",body:{answers}});
+      $("assessOut").innerHTML=`<div class="card"><h3>${r.score}/${r.total} → ${esc(r.level)}</h3>
+        <p class="mut">${esc(r.caveat)}</p>
+        ${r.recommended.length?`<p><strong>${LOCALE==="km"?"ចាប់ផ្តើមជាមុន":"Start with"}:</strong> ${r.recommended.map(k=>esc(k)).join(", ")}</p>`:""}</div>`;
+    }catch(e){ setStatus("err",e.message); }
+    b.disabled=false;
+  };
+}
+
+async function drawCoach(){
+  const st=await api("/api/platform/ai/status");
+  $("view").innerHTML=`
+   <h1>${esc(t("tabs").coach)}</h1>
+   <p class="lede">${esc(LOCALE==="km"?"សួរគ្រូសម្ភាសន៍របស់អ្នកអំពីការរៀន ឬអាជីវកម្មរបស់អ្នក។":"Ask your coach about your learning or your business.")}</p>
+   ${st.configured?"":`<span class="badge">${esc(t("noai"))}</span>`}
+   ${ME?`
+   <div class="card">
+     <label>${esc(t("ask"))}</label>
+     <textarea id="q" placeholder="${LOCALE==="km"?"សួរអ្វីបាន?":"Ask anything about your learning or your business"}"></textarea>
+     <label style="display:flex;gap:8px;align-items:center;margin-top:10px">
+       <input type="checkbox" id="consent" style="width:auto"> <span>${esc(t("consent"))}</span></label>
+     <div style="margin-top:12px"><button class="btn" id="ask">${esc(t("ask"))}</button></div>
+   </div>
+   <div id="ans"></div>`
+   :`<p class="status info">${esc(t("signinFirst"))}</p>`}`;
+  const b=$("ask"); if(!b) return;
+  b.onclick=async()=>{
+    const question=$("q").value.trim(); if(!question) return;
+    b.disabled=true; $("ans").innerHTML='<p class="card"><span class="spin"></span></p>';
+    try{
+      const r=await api("/api/platform/coach",{method:"POST",body:{question,consent:$("consent").checked}});
+      $("ans").innerHTML=`<div class="card"><div class="status ${r.isAI?"ok":"info"}">${esc(r.isAI?t("aiOn"):t("noai"))}</div>
+        <div style="white-space:pre-wrap">${esc(r.answer)}</div>
+        <p class="mut" style="margin-top:10px">${esc(t("aiCap"))}: ${r.remainingToday}/${r.dailyCap}${r.model?" · "+esc(r.model):""}</p></div>`;
+      $("q").value="";
+    }catch(e){ $("ans").innerHTML=`<div class="status err">${esc(e.message)}</div>`; }
+    b.disabled=false;
+  };
+}
+
+async function drawMe(){
+  if(!ME) return drawAcct();
+  const [an,pf]=await Promise.all([api("/api/platform/analytics"),api("/api/platform/proficiency")]);
+  $("view").innerHTML=`
+   <h1>${esc(t("tabs").me)}</h1>
+   <div class="grid" style="margin-bottom:16px">
+     <div class="metric"><b>${an.streakDays}</b><span class="mut">${esc(t("streak"))}</span></div>
+     <div class="metric"><b>${an.lessonsCompleted}</b><span class="mut">${esc(t("lessons"))}</span></div>
+     <div class="metric"><b>${an.labsSubmitted}</b><span class="mut">${esc(t("labs"))}</span></div>
+     <div class="metric"><b>${an.quiz.correct}/${an.quiz.attempts}</b><span class="mut">${esc(t("correct"))}</span></div>
+   </div>
+   <h2>${LOCALE==="km"?"កម្រិតជំនាញ":"Skill levels"}</h2>
+   ${pf.skills.length?pf.skills.map(s=>`<div class="card"><h3>${LOCALE==="km"?(s.nameKm||s.name):s.name} <span class="tag lv">${esc(s.level)}</span></h3>
+     <p class="mut">${LOCALE==="km"?"ការណ៍":"Lessons"} ${s.evidence.lessons} · Quiz ${esc(s.evidence.quiz)} · ${LOCALE==="km"?"មន្ទីពាណិជ្ជ":"Lab"} ${s.evidence.labs}</p></div>`).join("")
+    :'<p class="card mut">'+(LOCALE==="km"?"មិនទាន់មានកំណត់ត្រា។ ចាប់ផ្តើមដោយការវាយតម្លៃជំនាញ។":"No records yet. Start with the skill check.")+'</p>'}
+   <p><a class="btn sec" href="/skills.html">'+esc(LOCALE==="km"?"កម្មវិធី ៣០ ថ្ងៃ":"Open the 30-Day Program")+'</a></p>'`;
+}
+
+function drawAcct(){
+  if(ME) return drawMe();
+  $("view").innerHTML=`
+   <h1>${esc(t("tabs").acct)}</h1>
+   <p class="status info">${esc(t("signinFirst"))}</p>
+   <div class="grid">
+     <div class="card">
+       <h3>${esc(t("signup"))}</h3>
+       <label>${esc(t("email"))}</label><input type="email" id="sEmail" autocomplete="username">
+       <label>${esc(t("password"))}</label><input type="password" id="sPass" autocomplete="new-password">
+       <div style="margin-top:12px"><button class="btn" id="doReg">${esc(t("signup"))}</button></div>
+       <p class="mut" style="margin-top:10px">${esc(t("need"))}</p>
+     </div>
+     <div class="card">
+       <h3>${esc(t("signin"))}</h3>
+       <label>${esc(t("email"))}</label><input type="email" id="lEmail" autocomplete="username">
+       <label>${esc(t("password"))}</label><input type="password" id="lPass" autocomplete="current-password">
+       <div style="margin-top:12px"><button class="btn sec" id="doLog">${esc(t("signin"))}</button></div>
+       <p class="mut" style="margin-top:10px">${esc(t("have"))}</p>
+     </div>
+   </div>
+   <p class="mut" style="margin-top:16px">${esc(LOCALE==="km"?"ត្រូវការគណនី? មើលគេហទាវរសាស្ត្រទូទៅបានដោយមិនចាំបាច់ចូល។":"Prefer to browse? Everything except saving works without an account.")}</p>`;
+  $("doReg").onclick=async()=>{
+    try{ await api("/api/auth/register",{method:"POST",body:{email:$("sEmail").value.trim(),password:$("sPass").value}}); await boot(); }
+    catch(e){ setStatus("err",e.message); }
+  };
+  $("doLog").onclick=async()=>{
+    try{ await api("/api/auth/login",{method:"POST",body:{email:$("lEmail").value.trim(),password:$("lPass").value}}); await boot(); }
+    catch(e){ setStatus("err",e.message); }
+  };
+}
+
+$("btnEn").onclick=()=>{LOCALE="en";localStorage.setItem("upskill_locale","en");render();draw();};
+$("btnKm").onclick=()=>{LOCALE="km";localStorage.setItem("upskill_locale","km");render();draw();};
+boot();
+</script>
+</body>
+</html>

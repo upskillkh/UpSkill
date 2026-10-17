@@ -16,6 +16,7 @@ import {
   platformProgress, ensureEnrolment, httpError, LOCALES,
 } from "./platform.js";
 import { handlePlatformNext } from "./next-routes.js";
+import { handleLearningCommand } from "./learn-telegram.js";
 
 const FEEDS = [
   // ASEAN / regional
@@ -565,23 +566,32 @@ async function handleTelegram(request, env) {
     const r=await collect(env);
     reply=`🔄 Collection finished.\nNew stories: ${r.added}\nFeeds checked: ${r.checked}\nFailed feeds: ${r.failed.length}\nUse /today to view the latest report.`;
   } else {
-    // Skill Development commands. ensureSeeded is best-effort: a curriculum
-    // problem must not break the existing news commands.
-    try {
-      await ensureSeeded(env);
-      const result = await handleSkillCommand(env, command, arg);
-      if (result) {
-        reply = result.text;
-        await tryTelegram(env, chatId, reply, result.keyboard);
-      } else if (/^[1-4]$/.test(message.text.trim())) {
-        reply = await handleQuizAnswer(env, message.text.trim());
-        if (reply === null) reply="I don't recognize that command. Send /help to see available commands.";
-      } else {
-        reply = "I don't recognize that command. Send /help to see available commands.";
+    // Future Skills 2027-2031 commands are consulted first, but only after every
+    // existing news command above has had its chance, so nothing already working
+    // can change behaviour. It returns null for anything it does not own, which
+    // then falls through to the original skill handler untouched.
+    const learned = await handleLearningCommand(env, command, arg, chatId);
+    if (learned) {
+      reply = learned.text;
+    } else {
+      // Skill Development commands. ensureSeeded is best-effort: a curriculum
+      // problem must not break the existing news commands.
+      try {
+        await ensureSeeded(env);
+        const result = await handleSkillCommand(env, command, arg);
+        if (result) {
+          reply = result.text;
+          await tryTelegram(env, chatId, reply, result.keyboard);
+        } else if (/^[1-4]$/.test(message.text.trim())) {
+          reply = await handleQuizAnswer(env, message.text.trim());
+          if (reply === null) reply="I don't recognize that command. Send /help to see available commands.";
+        } else {
+          reply = "I don't recognize that command. Send /help to see available commands.";
+        }
+      } catch (e) {
+        console.error("skill command failed", command, String(e.message || e));
+        reply = "⚠️ The skill module hit a problem. Try again in a moment.";
       }
-    } catch (e) {
-      console.error("skill command failed", command, String(e.message || e));
-      reply = "⚠️ The skill module hit a problem. Try again in a moment.";
     }
   }
   if (reply !== SKIP_REPLY) await tryTelegram(env,chatId,reply);

@@ -20,3 +20,18 @@ ADMIN_SECRET=
 # Telegram message links back to /skills.html. Set this in wrangler.toml [vars]
 # as SITE_URL for production; it is only read from the environment here.
 # SITE_URL=https://your-worker.workers.dev
+
+# --- AI Learning Coach (optional) -----------------------------------------
+# The coach works WITHOUT these. With no key set it returns a deterministic
+# answer built from the learner's own records and labels it mode="fallback" in
+# the API response. It never fabricates an AI answer.
+#
+# AI_API_KEY is a SECRET. Set it with:  npx wrangler secret put AI_API_KEY
+# Never put it in wrangler.toml, in frontend code, in a test, or in git.
+AI_API_KEY=
+
+# Non-secret. Any OpenAI-compatible chat-completions endpoint works, which
+# covers the major hosted providers. AI_BASE_URL defaults to OpenAI.
+AI_BASE_URL=https://api.openai.com/v1
+AI_MODEL=gpt-4o-mini
+#

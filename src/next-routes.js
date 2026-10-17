@@ -35,7 +35,9 @@ function isAdmin(user, request, env) {
 
 // Routes this module owns. Anything else must fall through untouched, or the
 // older /api/platform/* handlers would be shadowed.
-const PUBLIC_ROUTES = ["/catalog", "/ai/status", "/lab/exercises", "/lab/exercise"];
+// The diagnostic questions are fixed published content with no user data, so
+// they render for anyone. Only the submission is user-scoped.
+const PUBLIC_ROUTES = ["/catalog", "/ai/status", "/lab/exercises", "/lab/exercise", "/assessment/questions"];
 const OWNED_ROUTES = [...PUBLIC_ROUTES, "/assessment", "/proficiency", "/analytics",
   "/lab/submissions", "/lab/submit", "/coach", "/coach/history", "/export", "/account", "/admin"];
 
@@ -71,6 +73,13 @@ export async function handlePlatformNext(request, env, url, user) {
     return ex ? json(ex) : err(404, "Exercise not found");
   }
 
+  // The diagnostic questions are fixed published content with no user data, so
+  // they render for anyone. Only the submission is user-scoped. This handler
+  // must sit ABOVE the session gate below, not merely be listed as public.
+  if (route === "/assessment/questions" && method === "GET") {
+    return json({ questions: await getAssessmentQuestions(env, url.searchParams.get("locale")) });
+  }
+
   // ---- everything below requires a session ---------------------------------
   // Admin routes are excluded here so that a signed-out admin attempt gets a
   // precise 403 from the role check below rather than a misleading 401.
@@ -78,10 +87,6 @@ export async function handlePlatformNext(request, env, url, user) {
 
   // user is null for anonymous admin attempts, so this must not dereference it.
   const locale = normLocale(url.searchParams.get("locale") || user?.locale || "en");
-
-  if (route === "/assessment/questions" && method === "GET") {
-    return json({ questions: await getAssessmentQuestions(env, locale) });
-  }
 
   if (route === "/assessment" && method === "POST") {
     const body = await readBody(request);
@@ -121,6 +126,36 @@ export async function handlePlatformNext(request, env, url, user) {
   if (route === "/coach/history" && method === "DELETE") {
     await clearCoachHistory(env, user.id);
     return json({ ok: true });
+  }
+
+  // ---- Telegram linking ---------------------------------------------------
+  // Generates a short, single-use code. The code is never returned for anyone
+  // else: it is scoped to the requesting account and invalidated on use.
+  if (route === "/telegram/link-code" && method === "POST") {
+    const alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const bytes = new Uint8Array(6);
+    crypto.getRandomValues(bytes);
+    const code = [...bytes].map((b) => alphabet[b % alphabet.length]).join("");
+    await env.DB.prepare(`
+      INSERT INTO telegram_links (user_id, link_code, reminder_enabled, updated_at)
+      VALUES (?, ?, 1, CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id) DO UPDATE SET
+        link_code = excluded.link_code, verified_at = NULL, updated_at = CURRENT_TIMESTAMP`)
+      .bind(user.id, code).run();
+    return json({ code, instructions: `Send /link ${code} to the Up Skill Telegram bot.` });
+  }
+
+  if (route === "/telegram/status" && method === "GET") {
+    const row = await env.DB.prepare(
+      "SELECT chat_id, verified_at, reminder_enabled, locale_override FROM telegram_links WHERE user_id = ?")
+      .bind(user.id).first();
+    return json({
+      linked: Boolean(row?.verified_at),
+      // The chat id is partially masked: it identifies the account but is not
+      // something that needs exposing to the page.
+      chatHint: row?.chat_id ? String(row.chat_id).slice(0, 3) + "****" : null,
+      reminders: Boolean(row?.reminder_enabled),
+    });
   }
 
   // ---- privacy: export and delete -----------------------------------------

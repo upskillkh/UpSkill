@@ -112,6 +112,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--blue);box-shadow:0 0 
   </nav></div>
   <div><div class="nav-label">System</div><nav class="nav">
     <button data-tab="telegram"><span class="ico">➤</span> Telegram Commands</button>
+    <button id="goLearn"><span class="ico">◎</span> Future Skills 2027-2031</button>
     <button id="backToNews"><span class="ico">←</span> Economic Intelligence</button>
     <button id="logoutBtn"><span class="ico">⏻</span> Sign out</button>
   </nav></div>
@@ -316,6 +317,7 @@ function render(){
 }
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{S.tab=b.dataset.tab;render();window.scrollTo({top:0,behavior:"smooth"})}));
 $("backToNews").addEventListener("click",()=>location.href="/");
+$("goLearn").addEventListener("click",()=>location.href="/learn.html");
 
 const meter=pct=>{const p=Math.max(0,Math.min(100,pct||0));return `<div class="bar"><span style="width:${p}%"></span></div>`};
 
