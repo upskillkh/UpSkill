@@ -860,7 +860,7 @@ export default {
       }
       if(url.pathname.startsWith("/api/auth")) return await handleAuth(request, env, url);
       if(url.pathname.startsWith("/api/platform")) return await handlePlatform(request, env, url);
-      if(url.pathname.startsWith("/api/catalog")||url.pathname.startsWith("/api/lab")) {
+      if(url.pathname.startsWith("/api/catalog")||url.pathname.startsWith("/api/lab")||url.pathname.startsWith("/api/structures")) {
         // Catalog and exercise browsing are published content and need no
         // session. Submission, coach and admin routes live under /api/platform
         // and are authenticated there.

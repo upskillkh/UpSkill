@@ -112,7 +112,7 @@ let TAB="cats";
 
 // --- Bilingual strings -----------------------------------------------------
 const T={
- en:{hdr:"Future Skills 2027-2031",tabs:{cats:"Skill Categories",path:"5-Year Roadmap",lab:"Business Lab",assess:"Skill Check",coach:"AI Coach",me:"My Progress",acct:"Account"},
+ en:{hdr:"Future Skills 2027-2031",tabs:{cats:"Skill Categories",path:"5-Year Roadmap",struct:"Business Structure",lab:"Business Lab",assess:"Skill Check",coach:"AI Coach",me:"My Progress",acct:"Account"},
   foot:"Up Skill · Khmer24 Growth System · Cloudflare Workers + D1",
   signin:"Sign in",signup:"Create account",out:"Sign out",unlocked:"This dashboard is unlocked — no sign-in needed.",
   signinFirst:"Sign in to save your progress.",email:"Email",password:"Password",have:"Have an account? Sign in.",need:"No account? Create one free.",
@@ -122,7 +122,7 @@ const T={
   aiOn:"Answered by AI.",aiCap:"Requests left today",ask:"Ask your coach",consent:"Save this exchange to my history",
   export:"Download my data",del:"Delete my account",dele:"This permanently removes your account and everything in it. Type DELETE to confirm.",
   never:"Sign in to use this.",streak:"Day streak",lessons:"Lessons done",labs:"Lab work",correct:"Quiz correct"},
- km:{hdr:"ជំនាញអនាគត ២០២៧-២០៣១",tabs:{cats:"ប្រភេទជំនាញ",path:"ផែនការ ៥ ឆ្នាំ",lab:"មន្ទីពាណិជ្ជកម្ម",assess:"ការវាយតម្លៃជំនាញ",coach:"គ្រូសម្ភាសន៍ AI",me:"វឌ្ឍនភាពរបស់ខ្ញុំ",acct:"គណនី"},
+ km:{hdr:"ជំនាញអនាគត ២០២៧-២០៣១",tabs:{cats:"ប្រភេទជំនាញ",path:"ផែនការ ៥ ឆ្នាំ",struct:"ទម្រង់អាជីវកម្ម",lab:"មន្ទីពាណិជ្ជកម្ម",assess:"ការវាយតម្លៃជំនាញ",coach:"គ្រូសម្ភាសន៍ AI",me:"វឌ្ឍនភាពរបស់ខ្ញុំ",acct:"គណនី"},
   foot:"Up Skill · ប្រព័ន្ធការលូទាន់ Khmer24 · Cloudflare Workers + D1",
   signin:"ចូល",signup:"បង្កើតគណនី",out:"ចាកចេញ",unlocked:"ផ្ទាំងនេះបើកចំហក — មិនចាំបាច់ចូលទេ។",
   signinFirst:"ចូលគណនីដើម្បីរក្សាទុកវឌ្ឍនភាព។",email:"អ៊ីមែល",password:"ពាក្យសម្ងាត់",have:"មានគណនី? ចូលគណនី។",need:"មិនមានគណនី? បង្កើតឥតគិតថ្លៃ។",
@@ -185,6 +185,7 @@ async function draw(){
   try{
     if(TAB==="cats") return drawCats();
     if(TAB==="path") return drawPath();
+    if(TAB==="struct") return drawStructures();
     if(TAB==="lab") return drawLab();
     if(TAB==="assess") return drawAssess();
     if(TAB==="coach") return drawCoach();
@@ -285,6 +286,79 @@ function drawPath(){
    <h2>${LOCALE==="km"?"កម្រិតទាំងបីរបី":"The four levels"}</h2>
    <div class="grid">${CAT.levels.map(l=>`<div class="cat"><span class="tag lv">${esc(l.key)}</span><h3 style="margin-top:6px">${esc(l.name)}</h3><p class="mut">${esc(l.summary)}</p></div>`).join("")}</div>`;
 }
+
+async function drawStructures(){
+  const d=await api("/api/structures?locale="+LOCALE);
+  const km=LOCALE==="km";
+  $("view").innerHTML=`
+   <h1>${km?"ទម្រង់អាជីវកម្ម":"Business Structure"}</h1>
+   <div class="status info">${esc(d.disclaimer)}</div>
+   <p class="lede">${km?"ទម្រង់អាជីវកម្មគឺការសម្រេចដែលធ្ងន់ជាងបំផុតដែលអ្នកធ្វើមុនពេល។ យើងបង្ហាញភាពខុសគ្នាដែលរៀបប៉ូលដោយស្រុង មិនមែនមានចម្លើយដែលត្រឹមតែមួយសម្រាប់គ្រប់គ្នា។":"This is the most expensive decision to reverse. Every option has a real downside, so there is no universally correct answer."}</p>
+
+   <h2>${km?"ជ្រើសតាមស្ថានភាពរបស់អ្នក":"Choose from your situation"}</h2>
+   <div class="card">
+     <label>${km?"តើមានអ្នកដំណើរការប៉ុន្មាននាក់?":"How many owners?"}</label>
+     <select id="sOwners"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4+">4+</option></select>
+     ${check("sInvestor",km?"តើអ្នកចង់ទទួលវិន្ទុស្តីពីខាងក្រៅទេ?":"Do you want outside investment?")}
+     ${check("sRisky",km?"តើអាជីវកម្មណាងមានហានិភ័យខ្លាំងទេ? (ឧ. ឥធធានកម្ម សំណង់ ជួលទីកន្លែង)?":"Is the work risky? (construction, food, equipment on site)")}
+     ${check("sProfit",km?"តើត្រូវរកចំណេញទេ?":"Is it a profit-making business?")}
+     ${check("sForeign",km?"តើម្តាក់គឺក្រុមហ្វន្តបរទេសទេ?":"Is the owner a foreign company?")}
+     ${check("sNfp",km?"តើជាអង្គកណ្ឌ ឬសាជីវកម្មមិនរកចំណេញទេ?":"Is it a non-profit or association?")}
+     <div style="margin-top:14px"><button class="btn" id="doRec">${km?"មើលជម្រើស":"Show options"}</button></div>
+     <div id="recOut"></div>
+   </div>
+
+   <h2>${km?"ប្រៀបធៀបទម្រង់ទាំងអស់":"Compare every structure"}</h2>
+   <div class="card" style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:640px">
+      <thead><tr>${[km?"ទម្រង់":"Structure",km?"ការទទួលខុសត្រូវ":"Liability",km?"ច្បាប់ឯករាជ្យ":"Legal person",km?"អ្នកដំណើរការ":"Owners",km?"វិន្ទុស្តី":"Investment",km?"ការរដ្ឋប្រកាប់":"Paperwork"]
+        .map(h=>`<th style="text-align:left;padding:8px;border-bottom:2px solid var(--line);font-size:12px">${esc(h)}</th>`).join("")}</tr></thead>
+      <tbody>${d.structures.map(s=>`<tr style="border-bottom:1px solid var(--line)">
+        <td style="padding:8px"><b>${esc(s.name)}</b><div class="mut" style="font-size:12px">${esc(s.minOwners)} ${km?"អ្នក":"owner(s)"}</div></td>
+        <td style="padding:8px">${s.limitedLiability?`<span class="tag ok">${km?"កំណត់":"Limited"}</span>`:`<span class="tag em">${km?"គួរសប់":"Unlimited"}</span>`}</td>
+        <td style="padding:8px">${s.separateLegalPerson?"✅":"—"}</td>
+        <td style="padding:8px">${esc(s.minOwners)}</td>
+        <td style="padding:8px">${s.acceptsInvestment?"✅":"—"}</td>
+        <td style="padding:8px"><span class="tag">${esc(s.adminBurden)}</span></td>
+      </tr>`).join("")}</tbody>
+    </table>
+   </div>
+
+   <h2>${km?"ព្រួយាង":"Detail"}</h2>
+   ${d.structures.map(s=>`
+     <div class="card">
+       <h3>${esc(s.name)}</h3>
+       <p class="mut">${esc(s.summary)}</p>
+       <p><strong>${km?"សម្រាប់នរណា":"Best for"}:</strong> ${esc(s.bestFor)}</p>
+       <p style="margin-top:8px"><strong>${km?"ត្រូវដូចម្តេចទេ":"The trade-off"}:</strong> ${esc(s.tradeoffs)}</p>
+       <p class="mut" style="margin-top:8px"><strong>${km?"អាជីវកម្មចុះឈ្មោះនៅ":"Registered with"}:</strong> ${esc(s.registeredBy)}</p>
+       <div class="status info" style="font-size:13px">${km?"ត្រូវផ្ទៀងផ្ទាត់៖":"Verify:"} ${esc(s.verify)}</div>
+       <details><summary>${km?"ច្រើនទៀត":"More"}</summary>
+         <p class="mut" style="margin-top:8px"><strong>${km?"អ្នកដំណើរការ":"Ownership"}:</strong> ${esc(s.ownership)}</p>
+       </details>
+     </div>`).join("")}`;
+  const b=$("doRec"); if(b) b.onclick=async()=>{
+    b.disabled=true; $("recOut").innerHTML='<p class="spin"></p>';
+    try{
+      const owners=$("sOwners").value;
+      const n=owners==="4+"?4:Number(owners);
+      const r=await api("/api/structures/recommend",{method:"POST",body:{locale:LOCALE,owners:n,
+        wantsInvestor:$("sInvestor").checked,risky:$("sRisky").checked,profitMaking:$("sProfit").checked,
+        foreign:$("sForeign").checked,notForProfit:$("sNfp").checked}});
+      $("recOut").innerHTML=`<h3 style="margin-top:14px">${km?"ជម្រើសដែលសមស្រប":"Best fit for your answers"}</h3>
+        ${r.ranked.map((x,i)=>`<div style="padding:10px 0;border-top:1px solid var(--line)">
+          <strong>${i+1}. ${esc(x.name)}</strong>
+          ${x.why.length?`<div style="font-size:13px;margin-top:4px">${x.why.map(w=>`<span class="tag ok">${esc(w)}</span>`).join("")}</div>`:""}
+          ${x.against.length?`<div style="font-size:13px;margin-top:4px">${x.against.map(w=>`<span class="tag em">${esc(w)}</span>`).join("")}</div>`:""}
+        </div>`).join("")}
+        <div class="status info" style="margin-top:12px">${esc(r.disclaimer)}</div>`;
+    }catch(e){ $("recOut").innerHTML=`<div class="status err">${esc(e.message)}</div>`; }
+    b.disabled=false;
+  };
+}
+
+const check=(id,label)=>`<label style="display:flex;gap:9px;align-items:center;margin:9px 0 0;font-weight:500">
+  <input type="checkbox" id="${id}" style="width:auto"> <span>${esc(label)}</span></label>`;
 
 async function drawLab(){
   const {exercises}=await api("/api/lab/exercises?locale="+LOCALE);

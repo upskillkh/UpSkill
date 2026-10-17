@@ -342,6 +342,91 @@ export async function getProficiency(env, userId) {
 }
 
 // ---------------------------------------------------------------------------
+// Business structures
+// ---------------------------------------------------------------------------
+export async function listStructures(env, locale = "en") {
+  const loc = normLocale(locale);
+  const { results } = await env.DB.prepare(
+    "SELECT * FROM business_structures WHERE status='active' ORDER BY sort_order").all();
+
+  return {
+    locale: loc,
+    disclaimer: loc === "km"
+      ? "មាតិកាសេចក្តីអប់រំ មិនមែនជាដំណឹងច្បាប់ ឬពន្ធដារ។ ថ្លៃចុំត្រា អតិបរមា និងកម្រិតពន្ធផ្លាស់ប្តូរជាភាពរបស់ពេលវេលា។ សូមផ្ទៀងផ្ទាត់ជាមួយក្រសួងពាណិជ្ជកម្ម ក្រសួងការការណីវីធិបាល អគ្រាប់ពន្ធដារធូលី ឬមុខជំនាញច្បាប់មុនពេលពឹងពាក្ស។"
+      : "Educational content, not legal or tax advice. Fees, capital thresholds and tax rates change. Confirm current requirements with the Ministry of Commerce, the Ministry of Interior, the General Department of Taxation, or a qualified lawyer before you rely on them.",
+    structures: results.map((s) => ({
+      key: s.key,
+      name: pick(s, "name_en", "name_km", loc),
+      summary: pick(s, "summary_en", "summary_km", loc),
+      liability: s.liability,
+      limitedLiability: s.liability === "limited",
+      separateLegalPerson: s.legal_person === 1,
+      minOwners: s.min_owners,
+      ownership: s.ownership,
+      acceptsInvestment: s.accepts_investment === 1,
+      adminBurden: s.admin_burden,
+      registeredBy: s.registered_by,
+      bestFor: pick(s, "best_for_en", "best_for_km", loc),
+      tradeoffs: pick(s, "tradeoffs_en", "tradeoffs_km", loc),
+      verify: pick(s, "verify_en", "verify_km", loc),
+    })),
+  };
+}
+
+// A small decision aid. It ranks structures against the facts a learner supplies
+// and always returns the trade-off, because there is no universally right answer
+// and a tool that implies otherwise would be misleading.
+export async function recommendStructure(env, locale, answers = {}) {
+  const loc = normLocale(locale);
+  const { structures } = await listStructures(env, loc);
+
+  const owners = Math.max(1, Number(answers.owners) || 1);
+  const wantsInvestor = answers.wantsInvestor === true || answers.wantsInvestor === "true";
+  const risky = answers.risky === true || answers.risky === "true";
+  const profitable = answers.profitMaking === true || answers.profitMaking === "true";
+  const isForeign = answers.foreign === true || answers.foreign === "true";
+  const notForProfit = answers.notForProfit === true || answers.notForProfit === "true";
+
+  const scored = structures.map((s) => {
+    let score = 0;
+    const why = [];
+    const against = [];
+
+    if (owners > 1 && s.key === "sole") { score -= 5; against.push(loc === "km" ? "មិនអាចមានអ្នកដំណើរការច្រើន" : "cannot have more than one owner"); }
+    if (owners > 1 && s.key === "branch") { score -= 5; against.push(loc === "km" ? "ជាសាខារបស់ក្រុមហ្វន្តបរទេស" : "is a branch of one foreign parent"); }
+    if (owners > 1 && ["partnership", "llc"].includes(s.key)) { score += 2; why.push(loc === "km" ? "អាចមានអ្នកដំណើរការច្រើន" : "allows multiple owners"); }
+    if (owners > 1 && s.key === "plc") why.push(loc === "km" ? "អាចមានអ្នកវិន្ទុស្តីច្រើន" : "supports many shareholders");
+
+    if (wantsInvestor && s.acceptsInvestment) { score += 3; why.push(loc === "km" ? "អាចទទួលវិន្ទុស្តី" : "can take outside investment"); }
+    if (wantsInvestor && !s.acceptsInvestment) { score -= 3; against.push(loc === "km" ? "មិនអាចទទួលវិន្ទុស្តី" : "cannot take outside investment"); }
+
+    if (risky && s.limitedLiability) { score += 3; why.push(loc === "km" ? "ការទទួលខុសត្រូវមានកំណត់" : "limits personal liability"); }
+    if (risky && !s.limitedLiability) { score -= 3; against.push(loc === "km" ? "ការទទួលខុសត្រូវគួរសប់" : "personal liability is unlimited"); }
+
+    if (profitable && ["llc", "plc"].includes(s.key)) { score += 1; why.push(loc === "km" ? "សមស្របនឹងអាជីវកម្មដែលរកចំណេញ" : "suits a profit-making business"); }
+    if (notForProfit && s.key === "ngo") { score += 4; why.push(loc === "km" ? "មិនមែនជាការបំណងប្រាក់ចំណេញ" : "is a non-profit form"); }
+    if (!notForProfit && s.key === "ngo") { score -= 4; against.push(loc === "km" ? "មិនអាចបែកចំណេញសម្រាប់ម្តាយ" : "cannot distribute profit to owners"); }
+
+    if (isForeign && ["branch", "fie"].includes(s.key)) { score += 3; why.push(loc === "km" ? "សម្រាប់អ្នកវិន្ទុស្តីបរទេស" : "suits a foreign owner"); }
+    if (!isForeign && ["branch", "fie"].includes(s.key)) { score -= 3; against.push(loc === "km" ? "មានសម្រាប់ម្តាក់បរទេស" : "is for a foreign parent"); }
+
+    if (s.adminBurden === "low") { score += owners > 1 ? 0 : 1; why.push(loc === "km" ? "ការរដ្ឋប្រកាប់តូច" : "least paperwork"); }
+    if (s.adminBurden === "high" && (owners === 1 && !wantsInvestor)) { score -= 1; against.push(loc === "km" ? "ការរដ្ឋប្រកាប់ច្រើន" : "heaviest paperwork"); }
+
+    return { key: s.key, name: s.name, score, why, against };
+  }).sort((a, b) => b.score - a.score);
+
+  return {
+    locale: loc,
+    answers: { owners, wantsInvestor, risky, profitable, isForeign, notForProfit },
+    ranked: scored.slice(0, 3),
+    disclaimer: loc === "km"
+      ? "ឧបករណ៍នេះជាជំនួយសម្រេច មិនមែនជាដំណឹងច្បាប់ទេ។ សម្រាប់សាកលីភាពជាក់លាក់ សូមពិភាក្សាជាមួយមុខជំនាញច្បាប់។"
+      : "This is a decision aid, not legal advice. For a decision you will be held to, consult a qualified lawyer.",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Business Lab
 // ---------------------------------------------------------------------------
 export async function listExercises(env, locale = "en", category) {

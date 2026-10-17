@@ -57,7 +57,7 @@ const PASSWORD = "Correct-Horse-7-Battery";
   // --- 2. Business Lab content -------------------------------------------
   const lab = await api("/api/lab/exercises");
   ok("lab exercises are public", lab.status === 200, lab.status);
-  ok("10 lab exercises seeded", lab.data.exercises?.length === 10, lab.data.exercises?.length);
+  ok("12 lab exercises seeded (10 core + 2 business structure)", lab.data.exercises?.length === 12, lab.data.exercises?.length);
   const first = lab.data.exercises?.[0];
   ok("every exercise has a rubric", lab.data.exercises?.every((e) => Array.isArray(e.rubric) && e.rubric.length > 0));
   ok("every exercise has instructions and expected output",
@@ -116,6 +116,56 @@ const PASSWORD = "Correct-Horse-7-Battery";
 
   const dAnon = await api("/api/catalog/skill?locale=en&key=strategic");
   ok("detail omits personal progress when anonymous", dAnon.data?.myProgress === null);
+
+  // --- 2c. Business structures -------------------------------------------
+  const bs = await api("/api/structures?locale=en");
+  ok("structures endpoint is public", bs.status === 200, bs.status);
+  ok("7 business structures", bs.data?.structures?.length === 7, bs.data?.structures?.length);
+  ok("disclaimer says this is not legal or tax advice", /not legal or tax advice/i.test(bs.data?.disclaimer || ""));
+  ok("every structure has liability stated", bs.data.structures.every((s) => ["limited", "unlimited", "mixed"].includes(s.liability)));
+  ok("every structure has a bestFor", bs.data.structures.every((s) => (s.bestFor || "").length > 20));
+  ok("every structure states its trade-off, not just benefits",
+    bs.data.structures.every((s) => (s.tradeoffs || "").length > 40));
+  ok("every structure says what to verify with an authority",
+    bs.data.structures.every((s) => (s.verify || "").length > 20));
+  ok("every structure names who registers it", bs.data.structures.every((s) => (s.registeredBy || "").length > 10));
+  ok("LLC is limited liability and a legal person",
+    bs.data.structures.find((s) => s.key === "llc")?.limitedLiability === true
+    && bs.data.structures.find((s) => s.key === "llc")?.separateLegalPerson === true);
+  ok("sole proprietor is unlimited liability and not a legal person",
+    bs.data.structures.find((s) => s.key === "sole")?.limitedLiability === false
+    && bs.data.structures.find((s) => s.key === "sole")?.separateLegalPerson === false);
+  ok("NGO is not presented as a profit route",
+    /cannot pay profits to members/i.test(bs.data.structures.find((s) => s.key === "ngo")?.tradeoffs || ""));
+
+  const bsKm = await api("/api/structures?locale=km");
+  ok("Khmer structures return Khmer", /[\u1780-\u17FF]/.test(bsKm.data?.structures?.[0]?.name || ""));
+  ok("Khmer disclaimer is in Khmer", /[\u1780-\u17FF]/.test(bsKm.data?.disclaimer || ""));
+  ok("Khmer trade-offs are present", bsKm.data.structures.every((s) => /[\u1780-\u17FF]/.test(s.tradeoffs || "")));
+
+  // Decision aid must actually discriminate, not return the same order always.
+  const rec = (body) => api("/api/structures/recommend", { method: "POST", body });
+  const twoOwner = await rec({ locale: "en", owners: 2, risky: true, wantsInvestor: true });
+  const solo = await rec({ locale: "en", owners: 1, risky: false, wantsInvestor: false });
+  const nfp = await rec({ locale: "en", owners: 3, notForProfit: true });
+  const foreign = await rec({ locale: "en", owners: 1, foreign: true });
+  ok("recommendation returns a ranking", twoOwner.data?.ranked?.length === 3, twoOwner.data?.ranked?.length);
+  ok("2 owners + risk + investment ranks LLC first", twoOwner.data?.ranked?.[0]?.key === "llc", twoOwner.data?.ranked?.[0]?.key);
+  ok("sole low-risk solo ranks sole first", solo.data?.ranked?.[0]?.key === "sole", solo.data?.ranked?.[0]?.key);
+  ok("non-profit ranks the non-profit form first", nfp.data?.ranked?.[0]?.key === "ngo", nfp.data?.ranked?.[0]?.key);
+  ok("foreign owner ranks a foreign form first", ["fie", "branch"].includes(foreign.data?.ranked?.[0]?.key), foreign.data?.ranked?.[0]?.key);
+  ok("recommendation differs by situation",
+    twoOwner.data?.ranked?.[0]?.key !== solo.data?.ranked?.[0]?.key);
+  ok("recommendation shows reasons FOR the winner", (twoOwner.data?.ranked?.[0]?.why || []).length > 0);
+  ok("recommendation carries its own non-legal-advice disclaimer",
+    /not legal advice/i.test(twoOwner.data?.disclaimer || ""));
+
+  const structLab = await api("/api/lab/exercises");
+  ok("business structure lab exercises are seeded",
+    structLab.data?.exercises?.some((e) => e.key === "lab-structure")
+    && structLab.data?.exercises?.some((e) => e.key === "lab-exposure"),
+    structLab.data?.exercises?.length);
+  ok("all lab exercises now total 12", structLab.data?.exercises?.length === 12, structLab.data?.exercises?.length);
 
   // --- 3. Authentication ---------------------------------------------------
   const reg = await api("/api/auth/register", { method: "POST", body: { email: EMAIL, password: PASSWORD } });

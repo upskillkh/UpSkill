@@ -7,6 +7,7 @@
 
 import {
   getCatalog, getSkillDetail, getAssessmentQuestions, submitAssessment, getProficiency,
+  listStructures, recommendStructure,
   listExercises, getExercise, saveSubmission, listSubmissions,
   getUserAnalytics, getAdminOverview, exportUserData, deleteUserAccount,
   normLocale,
@@ -37,7 +38,8 @@ function isAdmin(user, request, env) {
 // older /api/platform/* handlers would be shadowed.
 // The diagnostic questions are fixed published content with no user data, so
 // they render for anyone. Only the submission is user-scoped.
-const PUBLIC_ROUTES = ["/catalog", "/catalog/skill", "/ai/status", "/lab/exercises", "/lab/exercise", "/assessment/questions"];
+const PUBLIC_ROUTES = ["/catalog", "/catalog/skill", "/structures", "/structures/recommend",
+  "/ai/status", "/lab/exercises", "/lab/exercise", "/assessment/questions"];
 const OWNED_ROUTES = [...PUBLIC_ROUTES, "/assessment", "/proficiency", "/analytics",
   "/lab/submissions", "/lab/submit", "/coach", "/coach/history", "/settings", "/export", "/account", "/admin"];
 
@@ -55,6 +57,18 @@ export async function handlePlatformNext(request, env, url, user) {
   // no per-user data.
   if (route === "/catalog" && method === "GET") {
     return json(await getCatalog(env, url.searchParams.get("locale")));
+  }
+
+  if (route === "/structures" && method === "GET") {
+    return json(await listStructures(env, url.searchParams.get("locale")));
+  }
+
+  // Decision aid. POST because the answers are structured input, not a
+  // bookmarkable resource. Returns a ranking plus the reasons both ways, so the
+  // learner can see why an option lost as well as why it won.
+  if (route === "/structures/recommend" && method === "POST") {
+    const body = await readBody(request);
+    return json(await recommendStructure(env, body.locale || url.searchParams.get("locale"), body));
   }
 
   // Skill detail. Public, like the catalog, but optionally enriched with the
