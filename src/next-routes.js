@@ -6,7 +6,7 @@
 // hiding a button in the UI is never treated as authorisation.
 
 import {
-  getCatalog, getAssessmentQuestions, submitAssessment, getProficiency,
+  getCatalog, getSkillDetail, getAssessmentQuestions, submitAssessment, getProficiency,
   listExercises, getExercise, saveSubmission, listSubmissions,
   getUserAnalytics, getAdminOverview, exportUserData, deleteUserAccount,
   normLocale,
@@ -37,7 +37,7 @@ function isAdmin(user, request, env) {
 // older /api/platform/* handlers would be shadowed.
 // The diagnostic questions are fixed published content with no user data, so
 // they render for anyone. Only the submission is user-scoped.
-const PUBLIC_ROUTES = ["/catalog", "/ai/status", "/lab/exercises", "/lab/exercise", "/assessment/questions"];
+const PUBLIC_ROUTES = ["/catalog", "/catalog/skill", "/ai/status", "/lab/exercises", "/lab/exercise", "/assessment/questions"];
 const OWNED_ROUTES = [...PUBLIC_ROUTES, "/assessment", "/proficiency", "/analytics",
   "/lab/submissions", "/lab/submit", "/coach", "/coach/history", "/settings", "/export", "/account", "/admin"];
 
@@ -55,6 +55,13 @@ export async function handlePlatformNext(request, env, url, user) {
   // no per-user data.
   if (route === "/catalog" && method === "GET") {
     return json(await getCatalog(env, url.searchParams.get("locale")));
+  }
+
+  // Skill detail. Public, like the catalog, but optionally enriched with the
+  // signed-in learner's own progress when a session exists.
+  if (route === "/catalog/skill" && method === "GET") {
+    const d = await getSkillDetail(env, url.searchParams.get("locale"), url.searchParams.get("key") || "", user?.id);
+    return d ? json(d) : err(404, "Skill not found");
   }
 
   if (route === "/ai/status" && method === "GET") {

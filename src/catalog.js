@@ -102,6 +102,117 @@ function shapeSkill(s, loc) {
     established: s.established === 1,
     prerequisites: jsonCol(s.prerequisites, []),
     objectives: jsonCol(s.objectives, []),
+    // Depth fields added in migration 0009, used by the detail view.
+    detail: pick(s, "detail_en", "detail_km", loc),
+    whoFor: pick(s, "who_for_en", "who_for_km", loc),
+    outcomes: jsonCol(s.outcomes, []),
+    tools: jsonCol(s.tools, []),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Skill detail: one skill with everything needed to decide whether to study it,
+// plus its lessons in the requested language.
+// ---------------------------------------------------------------------------
+export async function getSkillDetail(env, locale, key, userId) {
+  const loc = normLocale(locale);
+  const k = String(key || "").slice(0, 60);
+  if (!k) return null;
+
+  const row = await env.DB.prepare(`
+    SELECT s.*, (SELECT COUNT(*) FROM lessons l WHERE l.skill_key = s.key AND l.status <> 'retired') AS lesson_count
+      FROM skills s WHERE s.key = ?`).bind(k).first();
+  if (!row) return null;
+
+  const cat = row.category_key
+    ? await env.DB.prepare("SELECT key, name_en, name_km, icon, established FROM categories WHERE key = ?").bind(row.category_key).first()
+    : null;
+
+  // Lessons for this skill, in the requested locale, falling back to English
+  // per lesson so a missing Khmer translation shows the learner something real
+  // rather than an empty page.
+  const lessons = await env.DB.prepare(`
+    SELECT l.id, l.day, l.slug, l.difficulty, l.est_minutes, l.status,
+           t.title, t.explanation, t.objective, t.exercise, t.action, t.reflection,
+           t.quiz_question, t.review_status, t.locale
+      FROM lessons l
+      LEFT JOIN lesson_translations t ON t.lesson_id = l.id AND t.locale = ?
+     WHERE l.skill_key = ?
+     ORDER BY l.day`).bind(loc, k).all();
+
+  // D1's .all() resolves to an object, not an array. Calling .map() on the
+  // result only crashed for Khmer, because the English branch used a literal.
+  const fallback = loc === "km"
+    ? ((await env.DB.prepare(`
+        SELECT l.id, t.title, t.objective
+          FROM lessons l JOIN lesson_translations t ON t.lesson_id = l.id AND t.locale = 'en'
+         WHERE l.skill_key = ?`).bind(k).all()).results || [])
+    : [];
+
+  const fb = new Map(fallback.map((r) => [r.id, r]));
+
+  const paths = await env.DB.prepare(`
+    SELECT p.key, p.year, p.level, p.title_en, p.title_km
+      FROM learning_path_skills ps JOIN learning_paths p ON p.id = ps.path_id
+     WHERE ps.skill_key = ? AND p.status = 'active' ORDER BY p.sort_order`).bind(k).all();
+
+  // Each category currently holds a single skill, so category siblings would
+  // always be empty and the "related" panel would be dead UI. Prefer real
+  // siblings, and fall back to other skills at the same level so the learner
+  // always has somewhere useful to go next.
+  const siblings = await env.DB.prepare(`
+    SELECT key, name, name_km, description, description_km FROM skills
+     WHERE category_key = ? AND key <> ? AND status <> 'retired'
+     ORDER BY sort_order`).bind(row.category_key || "", k).all();
+
+  const related = siblings.results?.length ? siblings.results
+    : (await env.DB.prepare(`
+        SELECT key, name, name_km, description, description_km FROM skills
+         WHERE level = ? AND key <> ? AND status <> 'retired'
+         ORDER BY sort_order LIMIT 4`).bind(row.level, k).all()).results || [];
+
+  // Personal state, only when there is a session. Absence is normal for an
+  // anonymous visitor and must not be an error.
+  let mine = null;
+  if (userId) {
+    const prof = await env.DB.prepare(
+      "SELECT * FROM skill_proficiency WHERE user_id = ? AND skill_key = ?").bind(userId, k).first();
+    mine = {
+      level: prof?.level || null,
+      evidence: prof
+        ? { lessons: prof.lessons_done, quiz: `${prof.quiz_correct}/${prof.quiz_attempts}`, labs: prof.labs_done }
+        : { lessons: 0, quiz: "0/0", labs: 0 },
+    };
+  }
+
+  const exercises = await env.DB.prepare(
+    "SELECT key, title_en, title_km, est_minutes FROM lab_exercises WHERE skill_key = ? AND status='active' ORDER BY sort_order")
+    .bind(k).all();
+
+  return {
+    skill: shapeSkill(row, loc),
+    category: cat
+      ? { key: cat.key, name: pick(cat, "name_en", "name_km", loc), icon: cat.icon, established: cat.established === 1 }
+      : null,
+    lessons: lessons.results.map((l) => {
+      const f = l.locale && l.locale === loc ? null : fb.get(l.id);
+      return {
+        day: l.day,
+        slug: l.slug,
+        title: l.title || f?.title || "",
+        objective: l.objective || f?.objective || "",
+        difficulty: l.difficulty,
+        estMinutes: l.est_minutes,
+        // True when this specific lesson fell back to English. Surfaced so the
+        // UI can be honest instead of silently mixing languages.
+        fallbackLocale: !l.locale && Boolean(f) ? "en" : null,
+        machineTranslated: l.review_status === "machine",
+      };
+    }),
+    paths: paths.results.map((p) => ({ key: p.key, year: p.year, level: p.level, title: pick(p, "title_en", "title_km", loc) })),
+    related: related.map((r) => ({ key: r.key, name: pick(r, "name", "name_km", loc), description: pick(r, "description", "description_km", loc) })),
+    exercises: exercises.results.map((e) => ({ key: e.key, title: pick(e, "title_en", "title_km", loc), estMinutes: e.est_minutes })),
+    myProgress: mine,
   };
 }
 

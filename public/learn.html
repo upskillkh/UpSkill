@@ -66,6 +66,15 @@ a{color:var(--accent)}
 details{margin:8px 0}
 summary{cursor:pointer;font-weight:600;font-size:14px}
 .rubric li{margin:4px 0;font-size:14px}
+/* Whole skill card is the click target. It was a plain div, so tapping it did
+   nothing at all — the single most confusing thing on the page. */
+.skillbtn{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);
+  border-radius:10px;padding:11px;margin-top:9px;cursor:pointer;font:inherit;color:inherit}
+.skillbtn:hover{border-color:var(--accent);background:#fbfcff}
+.skillbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sbtop{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px}
+.skillbtn .more{display:inline-block;margin-top:7px;color:var(--accent);font-size:13px;font-weight:600}
+button.tag{cursor:pointer}
 @media(max-width:560px){h1{font-size:22px}.sub{display:none}}
 </style>
 </head>
@@ -188,6 +197,7 @@ function drawCats(){
   $("view").innerHTML=`
    <h1>${esc(t("tabs").cats)}</h1>
    <p class="lede">${LOCALE==="km"?"ជំនាញ ១២ ប្រភេទសម្រាប់រយៈពេល ២០២៧ ដល់ ២០៣១។ ប្រភេទមួយផ្សេងទៀតអាចនៅក្បៅរហូត មិនមែនជាការដាក់ការនៅឡើយទេ។":"Twelve skill categories for 2027-2031. Start anywhere — this is a guide, not a restriction."}</p>
+   <p class="mut">${LOCALE==="km"?"ចុចលើជំនាញណាមួយដើម្បីមើលព័ត៌មានពេញលេញ។":"Tap any skill to see its full detail, lessons and tools."}</p>
    <div class="grid">${CAT.categories.map(c=>`
      <div class="cat">
        <div class="icon">${esc(c.icon||"•")}</div>
@@ -195,15 +205,69 @@ function drawCats(){
        <p class="mut">${esc(c.summary)}</p>
        ${c.established?"":'<span class="badge">'+esc(t("emerging"))+'</span>'}
        ${c.skills.map(s=>`
-         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
-           <strong style="font-size:14px">${esc(s.name)}</strong>
+         <button class="skillbtn" data-skill="${s.key}">
+           <div class="sbtop"><strong>${esc(s.name)}</strong><span class="tag lv">${esc(s.level)}</span></div>
            <div>${s.available?`<span class="tag ok">${esc(t("avail"))} · ${s.lessonCount}</span>`:`<span class="tag">${esc(t("planned"))}</span>`}
-           <span class="tag lv">${esc(s.level)}</span></div>
-           ${s.established?"":'<span class="tag em">'+esc(t("emerging"))+'</span>'}
+           ${s.established?"":`<span class="tag em">${esc(t("emerging"))}</span>`}</div>
            <p class="mut" style="margin:6px 0 0">${esc(s.description)}</p>
-         </div>`).join("")}
+           <span class="more">${esc(LOCALE==="km"?"មើលលម្អិត ▸":"View detail ▸")}</span>
+         </button>`).join("")}
      </div>`).join("")}</div>`;
+  wireSkills();
 }
+
+function wireSkills(){
+  $("view").querySelectorAll("[data-skill]").forEach(b=>b.onclick=()=>openSkill(b.dataset.skill));
+}
+
+async function openSkill(key){
+  $("view").innerHTML='<p class="card"><span class="spin"></span></p>';
+  let d;
+  try{ d=await api("/api/catalog/skill?locale="+LOCALE+"&key="+encodeURIComponent(key)); }
+  catch(e){ $("view").innerHTML=`<div class="status err">${esc(e.message)}</div>`+backBtn(); return; }
+  const s=d.skill;
+  $("view").innerHTML=`
+   <p>${backBtn('cats')}</p>
+   <div class="card">
+     <div class="icon">${esc(s.icon||"•")}</div>
+     <h1>${esc(s.name)}</h1>
+     <div>${s.available?`<span class="tag ok">${esc(t("avail"))} · ${s.lessonCount}</span>`:`<span class="tag">${esc(t("planned"))}</span>`}
+       <span class="tag lv">${esc(s.level)}</span>
+       ${s.established?"":`<span class="tag em">${esc(t("emerging"))}</span>`}
+       ${d.category?`<span class="tag">${esc(d.category.name)}</span>`:""}</div>
+     <p style="margin-top:12px">${esc(s.detail||s.description)}</p>
+     ${s.whoFor?`<p class="mut"><strong>${esc(LOCALE==="km"?"សម្រាប់នរណា":"Who it is for")}:</strong> ${esc(s.whoFor)}</p>`:""}
+     ${d.myProgress?`<p class="mut"><strong>${esc(LOCALE==="km"?"វឌ្ឍនភាពរបស់អ្នក":"Your progress")}:</strong> ${d.myProgress.level?esc(d.myProgress.level):"—"} · ${esc(LOCALE==="km"?"ការណ៍":"lessons")} ${d.myProgress.evidence.lessons} · Quiz ${esc(d.myProgress.evidence.quiz)}</p>`:""}
+   </div>
+   ${s.outcomes?.length?`<div class="card"><h3>${esc(LOCALE==="km"?"បន្ទាប់ពីរៀនរួច អ្នកអាច":"After this you can")}</h3>
+     <ul class="rubric">${s.outcomes.map(o=>`<li>${esc(o)}</li>`).join("")}</ul></div>`:""}
+   ${s.tools?.length?`<div class="card"><h3>${esc(LOCALE==="km"?"ឧបករណ៍ធម្មតា":"Typical tools")}</h3>
+     <div>${s.tools.map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div></div>`:""}
+   ${d.exercises?.length?`<div class="card"><h3>${esc(LOCALE==="km"?"ការងារមន្ទីពាណិជ្ជ":"Business Lab exercises")}</h3>
+     ${d.exercises.map(x=>`<div style="padding:6px 0;border-top:1px solid var(--line);font-size:14px">${esc(x.title)} <span class="mut">${x.estMinutes} min</span></div>`).join("")}</div>`:""}
+   <div class="card">
+     <h3>${esc(LOCALE==="km"?"ការណ៍":"Lessons")} (${d.lessons.length})</h3>
+     ${d.lessons.length?d.lessons.map(l=>`
+       <div style="padding:9px 0;border-top:1px solid var(--line)">
+         <strong style="font-size:14px">${esc(LOCALE==="km"?("ថ្ងៃទី "+l.day):("Day "+l.day))} — ${esc(l.title)}</strong>
+         <div class="mut" style="font-size:13px">${esc(l.objective)}</div>
+         <div style="margin-top:4px">
+           <span class="tag lv">${esc(l.difficulty)}</span>
+           <span class="tag">${l.estMinutes} min</span>
+           ${l.fallbackLocale?`<span class="tag em">${esc(LOCALE==="km"?"មិនទាន់បានបកប្រែ":"not yet translated")}</span>`:""}
+           ${l.machineTranslated?`<span class="tag">${esc(LOCALE==="km"?"បកប្រែដោយម៉ាស៊ីន":"machine translated")}</span>`:""}
+         </div>
+       </div>`).join(""):`<p class="mut">${esc(LOCALE==="km"?"ការណ៍នេះនៅតែកំពុងសរសេរ មិនទាន់មាន។":"Lessons for this skill are still being written.")}</p>`}
+     ${d.lessons.length?`<p style="margin-top:12px"><a class="btn" href="/skills.html">${esc(LOCALE==="km"?"ចាប់ផ្តើមការណ៍សង្កេក":"Start the lesson")}</a></p>`:""}
+   </div>
+   ${d.paths?.length?`<div class="card"><h3>${esc(LOCALE==="km"?"ផ្លូវដែលមានជំនាញនេះ":"Learning paths including this")}</h3>
+     <div>${d.paths.map(p=>`<span class="tag lv">${esc(p.title)}</span>`).join("")}</div></div>`:""}
+   ${d.related?.length?`<div class="card"><h3>${esc(LOCALE==="km"?"ជំនាញពាក់ព័ន្ធ":"Related skills")}</h3>
+     <div>${d.related.map(r=>`<button class="tag" data-skill="${r.key}" style="cursor:pointer;border:1px solid var(--line)">${esc(r.name)}</button>`).join("")}</div></div>`:""}`;
+  wireSkills();
+}
+
+const backBtn=(tab)=>`<button class="btn sec" onclick="TAB='${tab||"cats"}';render();draw()">← ${esc(LOCALE==="km"?"ត្រឡប់ក្រោយ":"Back")}</button>`;
 
 function drawPath(){
   $("view").innerHTML=`

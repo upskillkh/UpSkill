@@ -69,6 +69,54 @@ const PASSWORD = "Correct-Horse-7-Battery";
   ok("single exercise fetch works", detail.status === 200, detail.status);
   ok("unknown exercise is 404", (await api("/api/lab/exercise?key=nope")).status === 404);
 
+  // --- 2b. Skill detail (every skill, both locales) -----------------------
+  const allKeys = cat.data.categories.flatMap((c) => c.skills.map((s) => s.key));
+  ok("catalog exposes 12 skills", allKeys.length === 12, allKeys.length);
+
+  const enFail = [], kmFail = [], shallow = [];
+  for (const k of allKeys) {
+    for (const [loc, bucket] of [["en", enFail], ["km", kmFail]]) {
+      const r = await api(`/api/catalog/skill?locale=${loc}&key=${k}`);
+      if (r.status !== 200) { bucket.push(`${k}:${r.status}`); continue; }
+      const s = r.data.skill;
+      // A regression here once made Khmer 500 while English passed, because
+      // D1's .all() returns an object and only the Khmer branch touched it.
+      if (!s) { bucket.push(`${k}: no skill`); continue; }
+      if (!s.detail || s.detail.length < 80) shallow.push(`${k}/${loc} detail=${s.detail?.length}`);
+      if (!s.whoFor || s.whoFor.length < 30) shallow.push(`${k}/${loc} whoFor`);
+      if (!Array.isArray(s.outcomes) || s.outcomes.length < 3) shallow.push(`${k}/${loc} outcomes`);
+      if (!Array.isArray(s.tools) || s.tools.length < 3) shallow.push(`${k}/${loc} tools`);
+      if (!Array.isArray(r.data.lessons)) shallow.push(`${k}/${loc} lessons not array`);
+    }
+  }
+  ok("skill detail works in EN for all 12 skills", enFail.length === 0, enFail.join(","));
+  ok("skill detail works in KM for all 12 skills", kmFail.length === 0, kmFail.join(","));
+  ok("every skill has depth in both languages", shallow.length === 0, shallow.slice(0, 4).join(" | "));
+
+  const dEn = await api("/api/catalog/skill?locale=en&key=strategic");
+  ok("detail reports the category", dEn.data?.category?.key === "strategic");
+  ok("detail lists lessons for a skill that has them", dEn.data?.lessons?.length === 6, dEn.data?.lessons?.length);
+  ok("lessons carry day, title and objective",
+    dEn.data?.lessons?.every((l) => l.day && l.title && l.objective));
+  ok("detail lists the learning paths containing the skill", (dEn.data?.paths?.length || 0) > 0);
+  ok("detail always offers somewhere else to go", Array.isArray(dEn.data?.related));
+
+  const dKm = await api("/api/catalog/skill?locale=km&key=strategic");
+  ok("Khmer detail is actually Khmer", /[\u1780-\u17FF]/.test(dKm.data?.skill?.detail || ""));
+  ok("Khmer detail is not just the English text", dKm.data?.skill?.detail !== dEn.data?.skill?.detail);
+
+  const dPlanned = await api("/api/catalog/skill?locale=en&key=future_tech");
+  ok("a skill with no lessons returns an empty list, not an error",
+    Array.isArray(dPlanned.data?.lessons) && dPlanned.data.lessons.length === 0);
+  ok("a planned skill still has full depth", (dPlanned.data?.skill?.outcomes?.length || 0) >= 3);
+  ok("emerging skill is flagged as not established", dPlanned.data?.skill?.established === false);
+  ok("unknown skill key is 404", (await api("/api/catalog/skill?key=does_not_exist")).status === 404);
+  ok("missing key is 404", (await api("/api/catalog/skill")).status === 404);
+  ok("skill detail is public (no session needed)", dEn.status === 200);
+
+  const dAnon = await api("/api/catalog/skill?locale=en&key=strategic");
+  ok("detail omits personal progress when anonymous", dAnon.data?.myProgress === null);
+
   // --- 3. Authentication ---------------------------------------------------
   const reg = await api("/api/auth/register", { method: "POST", body: { email: EMAIL, password: PASSWORD } });
   ok("registration succeeds", reg.status === 200 || reg.status === 201, `${reg.status} ${reg.data?.error || ""}`);
@@ -82,6 +130,15 @@ const PASSWORD = "Correct-Horse-7-Battery";
   // /me lives under /api/auth; /api/platform/me is not a route.
   const me = await api("/api/auth/me", { cookie: `upskill_session=${session}` });
   ok("session resolves the new account", me.status === 200 && me.data?.user?.id > 0, me.status);
+
+  // Skill detail enriches itself with the learner's own progress, and must
+  // never show one learner's progress to another.
+  const dAuth = await api("/api/catalog/skill?locale=en&key=strategic", { cookie: `upskill_session=${session}` });
+  ok("detail includes the learner's own progress when signed in", dAuth.data?.myProgress != null);
+  ok("a fresh learner has no recorded proficiency yet",
+    dAuth.data?.myProgress?.evidence?.lessons === 0, JSON.stringify(dAuth.data?.myProgress));
+  const dAnon2 = await api("/api/catalog/skill?locale=en&key=strategic");
+  ok("the same request anonymously returns no personal data", dAnon2.data?.myProgress === null);
 
   const dupe = await api("/api/auth/register", { method: "POST", body: { email: EMAIL, password: PASSWORD } });
   ok("duplicate email rejected", dupe.status === 409, dupe.status);
