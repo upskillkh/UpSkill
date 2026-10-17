@@ -229,9 +229,14 @@ const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Phnom_Penh", ye
   const protectedDelivery = await call("/api/skills/daily/preview", { method: "POST", auth: false });
   record("daily preview requires authorization", protectedDelivery.status === 401, `got ${protectedDelivery.status}`);
 
-  const preview = await call("/api/skills/daily/preview", { method: "POST", body: {} });
+  // weekday is pinned to Wednesday (3). Without it this test reads the real
+  // current day, and Saturday/Sunday return the PRACTICAL BUSINESS APPLICATION
+  // review format instead of the weekday lesson format asserted below. That
+  // made the suite fail every weekend for reasons unrelated to the code.
+  const preview = await call("/api/skills/daily/preview", { method: "POST", body: { weekday: 3 } });
   const dt = preview.data;
   record("daily preview returns a message", preview.status === 200 && dt?.text?.length > 500, `${dt?.length} chars`);
+  record("weekday pin yields the weekday lesson format", dt?.type === "lesson", `type=${dt?.type}`);
 
   // Section 4 of the specification, checked literally.
   const sections = [

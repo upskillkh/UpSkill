@@ -15,6 +15,7 @@ import {
   seedLessons, getLessonForUser, listLessonsForUser, recordLessonCompletion,
   platformProgress, ensureEnrolment, httpError, LOCALES,
 } from "./platform.js";
+import { handlePlatformNext } from "./next-routes.js";
 
 const FEEDS = [
   // ASEAN / regional
@@ -671,6 +672,13 @@ async function handlePlatform(request, env, url) {
 
   const user = await currentUser(env, request);
 
+  // The 2027-2031 surface (catalog, levels, roadmap, Business Lab, assessment,
+  // proficiency, coach, privacy, admin) is handled first. It performs its own
+  // per-route auth so that published catalog routes stay reachable without a
+  // session while everything user-specific stays locked.
+  const next = await handlePlatformNext(request, env, url, user);
+  if (next) return next;
+
   if (route === "/health" && request.method === "GET") {
     const { results } = await env.DB.prepare(`SELECT COUNT(*) n FROM lessons`).all();
     const { results: tr } = await env.DB
@@ -770,6 +778,14 @@ export default {
       }
       if(url.pathname.startsWith("/api/auth")) return await handleAuth(request, env, url);
       if(url.pathname.startsWith("/api/platform")) return await handlePlatform(request, env, url);
+      if(url.pathname.startsWith("/api/catalog")||url.pathname.startsWith("/api/lab")) {
+        // Catalog and exercise browsing are published content and need no
+        // session. Submission, coach and admin routes live under /api/platform
+        // and are authenticated there.
+        const user=await currentUser(env,request);
+        const next=await handlePlatformNext(request,env,url,user);
+        return next||json({error:"Not found"},404);
+      }
       if(url.pathname==="/api/skills/daily/preview" && request.method==="POST") {
         const auth=await authorize(request,env);
         if(!auth.ok) return json({error:"Unauthorized"},401);

@@ -128,7 +128,10 @@ ok('logout invalidates session', (await call('/api/auth/me', { as: 'B' })).statu
 // --- existing system untouched ---
 const news = await call('/api/news?limit=2');
 ok('news API still works', news.status === 200 && Array.isArray(news.data?.stories));
-ok('news data intact (617)', news.data?.stats?.total === 617, `${news.data?.stats?.total}`);
+// The live RSS feed keeps adding stories, so the archive grows over time. The
+// invariant that matters is that it never SHRINKS. Asserting an exact count
+// meant this test failed every time the cron collected new articles.
+ok('news archive preserved (never shrinks)', news.data?.stats?.total >= 617, `${news.data?.stats?.total}`);
 const h = await call('/api/health');
 ok('health still works', h.status === 200 && h.data?.telegramConfigured === true);
 // POLICY CHANGE (owner-approved): the personal dashboard is now intentionally
