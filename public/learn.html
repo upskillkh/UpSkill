@@ -136,14 +136,27 @@ const setStatus=(kind,text)=>{$("view").insertAdjacentHTML("afterbegin",`<div cl
 
 async function boot(){
   try{ const m=await api("/api/auth/me"); ME=m.authenticated?m.user:null; }catch{ ME=null; }
+  // The account locale wins over localStorage, so a learner who switched to
+  // Khmer in Telegram sees Khmer here. localStorage is the fallback for
+  // signed-out visitors.
+  if(ME?.locale) LOCALE=(ME.locale==="km")?"km":"en";
+  else LOCALE=localStorage.getItem("upskill_locale")||"en";
   CAT=await api("/api/catalog?locale="+LOCALE);
   render(); draw();
+}
+
+async function setLocale(next){
+  LOCALE=next; localStorage.setItem("upskill_locale",next);
+  render(); draw();
+  // Persist to the account so Telegram and the web agree. A failure here must
+  // not break the page; the switch has already happened locally.
+  if(ME){ try{ await api("/api/platform/settings",{method:"POST",body:{locale:next}}); ME.locale=next; }catch{} }
 }
 
 // --- nav --------------------------------------------------------------------
 function render(){
   $("hdrSub").textContent=t("hdr");
-  $("foot").innerHTML=esc(t("foot"))+' &middot; <a href="/skills.html">30-Day Program</a> &middot; <a href="/">Economic Intelligence</a>';
+  $("foot").innerHTML=esc(t("foot"))+' &middot; <a href="/skills.html">30-Day Program</a> &middot; <a href="/">Economic Intelligence</a>'+(ME?.role==="admin"?' &middot; <a href="/admin.html">Admin</a>':"");
   $("nav").innerHTML=Object.entries(t("tabs")).map(([k,label])=>
     `<button data-t="${k}" ${TAB===k?'aria-current="true"':''}>${esc(label)}</button>`).join("");
   $("nav").querySelectorAll("button").forEach(b=>b.onclick=()=>{TAB=b.dataset.t;render();draw();});
@@ -227,16 +240,32 @@ async function drawLab(){
        <details><summary>${esc(t("rubric"))}</summary><ul class="rubric">${e.rubric.map(r=>`<li>${esc(r.criterion)} — <strong>${r.points}/${r.max}</strong></li>`).join("")}</ul></details>
        ${ME?`<label>${LOCALE==="km"?"ការងាររបស់អ្នក":"Your work"}</label>
        <textarea id="ans-${e.key}" placeholder="..."></textarea>
-       <div style="margin-top:10px"><button class="btn" data-sub="${e.key}">${esc(t("submit"))}</button> <span class="mut" id="ok-${e.key}"></span></div>`
+       <details><summary>${LOCALE==="km"?"វាយតម្លៃតាមលក្ខខណ្ឌ":"Score yourself against the rubric"}</summary>
+         ${e.rubric.map((r,i)=>`<div style="display:flex;gap:10px;align-items:center;margin:6px 0">
+           <span style="flex:1;font-size:14px">${esc(r.criterion)}</span>
+           <input type="number" min="0" max="${r.max}" value="0" id="rs-${e.key}-${i}" style="width:72px">
+           <span class="mut">/ ${r.max}</span></div>`).join("")}
+       </details>
+       <div style="margin-top:10px"><button class="btn" data-sub="${e.key}">${esc(t("submit"))}</button> <span class="mut" id="ok-${e.key}"></span></div>
+       <div id="sc-${e.key}"></div>`
       :`<p class="status info">${esc(t("signinFirst"))}</p>`}
      </div>`).join("")}`;
   $("view").querySelectorAll("[data-sub]").forEach(b=>b.onclick=async()=>{
     const k=b.dataset.sub; b.disabled=true;
+    const box=$("sc-"+k); box.innerHTML="";
     try{
       const answer=$("ans-"+k).value;
       if(!answer.trim()) throw new Error(LOCALE==="km"?"សូមសរសេរចម្លើយជាមុន":"Please write your answer first");
-      const r=await api("/api/platform/lab/submit",{method:"POST",body:{key:k,answer}});
+      // Per-criterion scores are sent to the server, which clamps each to its
+      // rubric maximum. The browser cannot award itself a higher mark.
+      const ex=exercises.find(x=>x.key===k);
+      const rubricScores={};
+      (ex?.rubric||[]).forEach((r,i)=>{ const el=$("rs-"+k+"-"+i); if(el) rubricScores[r.criterion]=Number(el.value)||0; });
+      const r=await api("/api/platform/lab/submit",{method:"POST",body:{key:k,answer,rubricScores}});
       $("ok-"+k).textContent=esc(t("attempt")+" "+r.attempt+" ✓");
+      box.innerHTML=`<div class="status ok"><strong>${r.earned}/${r.possible} · ${r.percent}%</strong>
+        <div style="margin-top:6px">${esc(LOCALE==="km"?(r.percent>=85?"ខ្លាំង — ការងារនេះស្របនឹងការវាយតម្លៃ។":"មិនគ្រប់គ្រងទេ ពិនិត្យលក្ខខណ្ឌដែលបានវាយតម្លៃទាបបំផុត។"):r.feedback)}</div>
+        <ul class="rubric" style="margin:8px 0 0">${r.detail.map(d=>`<li>${esc(d)}</li>`).join("")}</ul></div>`;
       b.disabled=false; $("ans-"+k).value="";
     }catch(e){ $("ok-"+k).textContent="✗ "+e.message; b.disabled=false; }
   });
@@ -347,8 +376,8 @@ function drawAcct(){
   };
 }
 
-$("btnEn").onclick=()=>{LOCALE="en";localStorage.setItem("upskill_locale","en");render();draw();};
-$("btnKm").onclick=()=>{LOCALE="km";localStorage.setItem("upskill_locale","km");render();draw();};
+$("btnEn").onclick=()=>setLocale("en");
+$("btnKm").onclick=()=>setLocale("km");
 boot();
 </script>
 </body>

@@ -205,6 +205,83 @@ const PASSWORD = "Correct-Horse-7-Battery";
     (await api("/api/platform/admin/skill", { method: "POST", cookie: `upskill_session=${session}`, body: { key: "digital", status: "retired" } })).status === 403);
   ok("anonymous admin is 403", (await api("/api/platform/admin/overview")).status === 403);
 
+  // --- 11b. Preferences isolation (regression guard) ---------------------
+  // user_preferences is a GLOBAL key/value table with no user_id. The read and
+  // write path now goes through the scoped user_settings table. This asserts
+  // that one account cannot read or change another account's setting.
+  await api("/api/skills/preferences", { method: "POST", cookie: `upskill_session=${session}`, body: { remindersEnabled: true } });
+  const aPref = await api("/api/skills/preferences", { cookie: `upskill_session=${session}` });
+  ok("account A reminders on", aPref.data?.remindersEnabled === true, JSON.stringify(aPref.data));
+
+  await api("/api/skills/preferences", { method: "POST", cookie: s2, body: { remindersEnabled: false } });
+  const bPref = await api("/api/skills/preferences", { cookie: s2 });
+  ok("account B reminders off", bPref.data?.remindersEnabled === false, JSON.stringify(bPref.data));
+  const aPrefAgain = await api("/api/skills/preferences", { cookie: `upskill_session=${session}` });
+  ok("account B's change did NOT leak into account A (the isolation bug)",
+    aPrefAgain.data?.remindersEnabled === true, JSON.stringify(aPrefAgain.data));
+
+  // --- 11c. Business Lab rubric scoring is enforced server-side -----------
+  const ex1 = lab.data.exercises[0];
+  const maxPoints = ex1.rubric.reduce((n, r) => n + r.max, 0);
+  const cheat = await api("/api/platform/lab/submit", {
+    method: "POST", cookie: `upskill_session=${session}`,
+    body: {
+      key: ex1.key, answer: "A deliberately over-scored attempt.",
+      rubricScores: Object.fromEntries(ex1.rubric.map((r) => [r.criterion, 9999])),
+    },
+  });
+  ok("submit returns a score", typeof cheat.data?.percent === "number", JSON.stringify(cheat.data));
+  ok("over-scoring is clamped to the rubric maximum", cheat.data.earned === maxPoints, `${cheat.data.earned}/${maxPoints}`);
+  ok("clamped score cannot exceed 100%", cheat.data.percent === 100, cheat.data.percent);
+  ok("a band and feedback are returned", Boolean(cheat.data.band && cheat.data.feedback));
+  ok("per-criterion breakdown returned", cheat.data.detail?.length === ex1.rubric.length);
+
+  const zero = await api("/api/platform/lab/submit", {
+    method: "POST", cookie: `upskill_session=${session}`,
+    body: { key: ex1.key, answer: "Unscored attempt.", rubricScores: {} },
+  });
+  ok("empty rubric scores score zero, not full marks", zero.data?.percent === 0, zero.data?.percent);
+
+  const bogus = await api("/api/platform/lab/submit", {
+    method: "POST", cookie: `upskill_session=${session}`,
+    body: { key: ex1.key, answer: "Invented criterion.", rubricScores: { "Not a real criterion": 500 } },
+  });
+  ok("invented criteria are ignored", bogus.data?.earned === 0, bogus.data?.earned);
+
+  ok("empty answer is rejected",
+    (await api("/api/platform/lab/submit", { method: "POST", cookie: `upskill_session=${session}`, body: { key: ex1.key, answer: "  " } })).status === 400);
+
+  const subsAfter = await api("/api/platform/lab/submissions", { cookie: `upskill_session=${session}` });
+  ok("history now reports earned/possible per attempt",
+    subsAfter.data.submissions.every((s) => typeof s.earned === "number" && typeof s.possible === "number"));
+
+  // --- 11d. Locale sync between web and Telegram --------------------------
+  await api("/api/platform/settings", { method: "POST", cookie: `upskill_session=${session}`, body: { locale: "km" } });
+  const meAfter = await api("/api/auth/me", { cookie: `upskill_session=${session}` });
+  ok("account locale is updated and returned by /api/auth/me", meAfter.data?.user?.locale === "km", meAfter.data?.user?.locale);
+  const settings = await api("/api/platform/settings", { cookie: `upskill_session=${session}` });
+  ok("locale is mirrored into user_settings", settings.data?.settings?.locale === "km", JSON.stringify(settings.data));
+  ok("invalid locale rejected",
+    (await api("/api/platform/settings", { method: "POST", cookie: `upskill_session=${session}`, body: { locale: "fr" } })).status === 400);
+  const meB = await api("/api/auth/me", { cookie: s2 });
+  ok("account B locale untouched by account A's change", meB.data?.user?.locale === "en", meB.data?.user?.locale);
+  await api("/api/platform/settings", { method: "POST", cookie: `upskill_session=${session}`, body: { locale: "en" } });
+
+  // --- 11e. Admin endpoints return real data for an admin -----------------
+  const adm = await api("/api/platform/admin/curriculum", { token: process.env.ADMIN_SECRET });
+  ok("admin curriculum returns lessons with ADMIN_SECRET", adm.data?.lessons?.length === 30, adm.data?.lessons?.length);
+  ok("curriculum rows carry difficulty (the real column)",
+    adm.data?.lessons?.every((l) => typeof l.difficulty === "string"));
+  ok("curriculum reports translation review state",
+    adm.data?.lessons?.every((l) => typeof l.translations === "number" && typeof l.reviewed === "number"));
+  const ov = await api("/api/platform/admin/overview", { token: process.env.ADMIN_SECRET });
+  ok("admin overview aggregates", ov.data?.users?.total > 0 && Array.isArray(ov.data?.byCategory));
+  ok("admin overview covers all 12 categories", ov.data?.byCategory?.length === 12, ov.data?.byCategory?.length);
+  ok("admin users endpoint returns no password columns",
+    !JSON.stringify((await api("/api/platform/admin/users", { token: process.env.ADMIN_SECRET })).data)
+      .match(/password_hash|password_salt/));
+  ok("admin page is served", (await fetch(BASE + "/admin.html")).status === 200);
+
   // --- 12. Existing Economic Intelligence untouched ----------------------
   const news = await api("/api/news?limit=2");
   ok("news API intact", news.status === 200 && Array.isArray(news.data?.stories));

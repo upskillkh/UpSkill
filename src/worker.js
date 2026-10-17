@@ -262,6 +262,71 @@ async function sendScheduledReport(env) {
 // cannot deliver twice. A failed send is recorded and released for retry rather
 // than silently marked done.
 // ---------------------------------------------------------------------------
+// Deliver the daily lesson to every learner who explicitly opted in by linking
+// a Telegram chat and leaving reminders on.
+//
+// The owner's own delivery above is untouched. This only handles OTHER users,
+// so the existing behaviour of the 06:00 job cannot change.
+//
+// Duplicate prevention is structural, not procedural: notification_deliveries
+// has UNIQUE(user_id, kind, scheduled_for) and we use INSERT OR IGNORE. A
+// retried cron, a double trigger, or two concurrent runs all collapse to one
+// row and one message. The owner is excluded explicitly so the two delivery
+// paths can never both message the same chat on the same day.
+async function fanOutLesson(env, built, date) {
+  try {
+    const { results } = await env.DB.prepare(`
+      SELECT l.user_id, l.chat_id, u.locale
+        FROM telegram_links l JOIN users u ON u.id = l.user_id
+       WHERE l.chat_id IS NOT NULL
+         AND l.verified_at IS NOT NULL
+         AND l.reminder_enabled = 1
+         AND u.status = 'active'
+         AND l.user_id <> ?`).bind(OWNER_ID).all();
+
+    if (!results?.length) return { fannedOut: 0, reason: "no_opted_in_learners" };
+
+    const keyboard = built.type==="lesson" ? lessonKeyboard(built.day)
+                    : built.quizDay ? reviewKeyboard(built.quizDay) : undefined;
+    const scheduledFor = date;                       // YYYY-MM-DD in Cambodia
+    let sent = 0, failed = 0, skipped = 0;
+
+    for (const row of results) {
+      // The claim is the duplicate guard. If the insert changes nothing, this
+      // learner already has a record for today and must not be messaged again.
+      const claim = await env.DB.prepare(`
+        INSERT OR IGNORE INTO notification_deliveries
+          (user_id, lesson_id, kind, scheduled_for, status, attempts, created_at)
+        VALUES (?, ?, 'lesson', ?, 'pending', 0, CURRENT_TIMESTAMP)`)
+        .bind(row.user_id, built.day || null, scheduledFor).run();
+
+      if (!claim.meta?.changes) { skipped++; continue; }
+
+      try {
+        await telegram(env, row.chat_id, built.text, keyboard);
+        await env.DB.prepare(`
+          UPDATE notification_deliveries SET status='sent', attempts=attempts+1, sent_at=?
+           WHERE user_id=? AND kind='lesson' AND scheduled_for=?`)
+          .bind(new Date().toISOString(), row.user_id, scheduledFor).run();
+        sent++;
+      } catch (e) {
+        // Recorded as failed, never retried automatically in the same window.
+        // A retry would risk a duplicate if the message actually went out.
+        await env.DB.prepare(`
+          UPDATE notification_deliveries SET status='failed', attempts=attempts+1, error=?
+           WHERE user_id=? AND kind='lesson' AND scheduled_for=?`)
+          .bind(String(e.message||e).slice(0, 200), row.user_id, scheduledFor).run();
+        failed++;
+      }
+    }
+    return { fannedOut: sent, skipped, failed };
+  } catch (e) {
+    // Never let fan-out failure surface to the owner's delivery.
+    console.warn("lesson fan-out skipped:", String(e.message || e));
+    return { fannedOut: 0, reason: "fanout_error" };
+  }
+}
+
 async function sendDailyLesson(env, opts={}) {
   if(!env.TELEGRAM_BOT_TOKEN || !env.ALLOWED_CHAT_ID) return {sent:false,reason:"telegram_not_configured"};
   const date = opts.date || ictDate();
@@ -286,6 +351,9 @@ async function sendDailyLesson(env, opts={}) {
     await telegram(env, env.ALLOWED_CHAT_ID, built.text, keyboard);
     if(built.type==="lesson") await setLastSent(env, {day:built.day, type:"lesson"});
     if(!forced) await markDelivered(env, date);
+    // Fan-out to opted-in linked learners. Runs AFTER the owner send and is
+    // fully guarded, so a failure here can never stop the owner's lesson.
+    if(!forced) await fanOutLesson(env, built, date);
     return {sent:true, date, type:built.type, day:built.day||null};
   } catch(e) {
     console.error("daily lesson failed", String(e.message||e));
@@ -422,13 +490,17 @@ async function handleSkills(request, env, url) {
     }
 
     if (route === "/preferences") {
+      // Scoped to the signed-in account when there is one, so a stranger cannot
+      // flip the owner's reminder setting. Falls back to OWNER_ID for the
+      // legacy single-user dashboard, which has no account session of its own.
+      const prefUser = (await currentUser(env, request))?.id || OWNER_ID;
       if (request.method === "GET") {
-        return json({ remindersEnabled: await remindersEnabled(env) });
+        return json({ remindersEnabled: await remindersEnabled(env, prefUser) });
       }
       if (request.method === "POST") {
         const body = await readBody(request);
         const enabled = body.remindersEnabled === true || body.remindersEnabled === 1 || body.remindersEnabled === "1";
-        await setPreference(env, "reminders_enabled", enabled ? "1" : "0");
+        await setPreference(env, "reminders_enabled", enabled ? "1" : "0", prefUser);
         return json({ ok: true, remindersEnabled: enabled });
       }
     }

@@ -265,10 +265,45 @@ function shapeExercise(e, loc) {
   };
 }
 
-export async function saveSubmission(env, userId, key, answer, selfScore) {
+// Rule-based bands. These are stated criteria, not a judgement about the
+// person: the score says whether the ANSWER met the RUBRIC, nothing more.
+export function bandFor(percent) {
+  if (percent >= 85) return { band: "strong", en: "Strong — this meets the rubric.", km: "ខ្លាំង — ការងារនេះស្របនឹងការវាយតម្លៃ។" };
+  if (percent >= 60) return { band: "meets", en: "Meets most of the rubric. Review the criteria you scored lowest.", km: "ស្របនឹងភាគរយប្រទាំងបីរបី។ ពិនិត្យលក្ខខណ្ឌដែលអ្នកបានពិនិត្យថ្នាក់ទាបបំផុត។" };
+  if (percent > 0) return { band: "partial", en: "Partial — several rubric criteria are not met yet. Try again.", km: "មួយផ្នែក — លក្ខខណ្ឌវាយតម្លៃជាច្រើនមិនទាន់សម្រេច។ ព្យាយាមម្តងទៀត។" };
+  return { band: "unscored", en: "Not scored yet. Use the rubric to self-assess.", km: "មិនទាន់បានវាយតម្លៃ។ ប្រើការវាយតម្លៃដើម្បីវាយតម្លៃខ្លួនឯង។" };
+}
+
+// Accepts the learner's per-criterion scores, clamps every value to that
+// criterion's maximum, and ignores unknown criteria. A client cannot inflate a
+// score by sending a number larger than the rubric allows, or by inventing a
+// criterion that is not in the rubric.
+export function scoreAgainstRubric(rubric, scores) {
+  const list = Array.isArray(rubric) ? rubric : [];
+  const out = {};
+  let earned = 0;
+  let possible = 0;
+  const lines = [];
+  for (const r of list) {
+    const max = Number(r.max) || 0;
+    possible += max;
+    const given = Number(scores?.[r.criterion]);
+    const clamped = Number.isFinite(given) ? Math.max(0, Math.min(max, given)) : 0;
+    out[r.criterion] = clamped;
+    earned += clamped;
+    lines.push(`${clamped}/${max} — ${r.criterion}`);
+  }
+  const percent = possible > 0 ? Math.round((earned / possible) * 100) : 0;
+  return { scores: out, earned, possible, percent, detail: lines };
+}
+
+export async function saveSubmission(env, userId, key, answer, selfScore, rubricScores) {
   // Confirm the exercise exists so a typo cannot create orphan submissions.
-  const ex = await env.DB.prepare("SELECT key, skill_key FROM lab_exercises WHERE key = ? AND status='active'").bind(key).first();
+  const ex = await env.DB.prepare("SELECT key, skill_key, rubric, title_en, title_km FROM lab_exercises WHERE key = ? AND status='active'").bind(key).first();
   if (!ex) return null;
+
+  const rubric = jsonCol(ex.rubric, []);
+  const scored = scoreAgainstRubric(rubric, rubricScores);
 
   // attempt is derived, never taken from the client, so two concurrent
   // submissions cannot collide or overwrite each other.
@@ -277,31 +312,58 @@ export async function saveSubmission(env, userId, key, answer, selfScore) {
     .bind(userId, key).first();
 
   const attempt = (prev?.a || 0) + 1;
+
+  // A single self_score is only trusted when it is consistent with the rubric
+  // total. If the learner supplied per-criterion scores, those are the truth.
+  const totalScore = scored.possible > 0 ? scored.earned
+    : (Number.isFinite(selfScore) ? Math.max(0, Math.min(100, selfScore)) : null);
+
   await env.DB.prepare(`
-    INSERT INTO lab_submissions (user_id, exercise_key, attempt, answer, self_score, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`)
-    .bind(userId, key, attempt, String(answer || "").slice(0, 20000),
-      Number.isFinite(selfScore) ? selfScore : null).run();
+    INSERT INTO lab_submissions
+      (user_id, exercise_key, attempt, answer, self_score, rubric_scores, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, 'submitted', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`)
+    .bind(userId, key, attempt, String(answer || "").slice(0, 20000), totalScore,
+      JSON.stringify(scored.scores)).run();
 
   if (attempt === 1) await bumpProficiency(env, userId, ex.skill_key, { labs: 1 });
-  return { attempt };
+
+  const b = bandFor(scored.percent);
+  return {
+    attempt,
+    earned: scored.earned,
+    possible: scored.possible,
+    percent: scored.percent,
+    band: b.band,
+    feedback: b.en,
+    detail: scored.detail,
+  };
 }
 
 export async function listSubmissions(env, userId) {
   const { results } = await env.DB.prepare(`
-    SELECT s.*, e.title_en, e.title_km
+    SELECT s.*, e.title_en, e.title_km, e.rubric
       FROM lab_submissions s JOIN lab_exercises e ON e.key = s.exercise_key
      WHERE s.user_id = ? ORDER BY s.updated_at DESC`).bind(userId).all();
-  return results.map((r) => ({
-    exercise: r.exercise_key,
-    title: r.title_en,
-    titleKm: r.title_km,
-    attempt: r.attempt,
-    selfScore: r.self_score,
-    aiFeedback: r.ai_feedback || "",
-    aiModel: r.ai_model || "",
-    updated: r.updated_at,
-  }));
+  return results.map((r) => {
+    const rubric = jsonCol(r.rubric, []);
+    const scores = jsonCol(r.rubric_scores, {});
+    const possible = rubric.reduce((n, x) => n + (Number(x.max) || 0), 0);
+    const earned = Object.values(scores).reduce((a, b) => a + (Number(b) || 0), 0);
+    return {
+      exercise: r.exercise_key,
+      title: r.title_en,
+      titleKm: r.title_km,
+      attempt: r.attempt,
+      earned,
+      possible,
+      percent: possible > 0 ? Math.round((earned / possible) * 100) : null,
+      band: possible > 0 ? bandFor(Math.round((earned / possible) * 100)).band : "unscored",
+      breakdown: rubric.map((x) => ({ criterion: x.criterion, got: scores[x.criterion] ?? 0, max: x.max })),
+      aiFeedback: r.ai_feedback || "",
+      aiModel: r.ai_model || "",
+      updated: r.updated_at,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------

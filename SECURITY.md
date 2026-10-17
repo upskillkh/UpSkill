@@ -112,11 +112,55 @@ the commit that introduced it when you flip it back.
   alphabet with no ambiguous `0/O/1/I`). A code is invalidated on use and is
   scoped to one account.
 - `/unlink` clears the chat binding only. It does not touch the account.
-- **Multi-user broadcast delivery is NOT enabled.** `telegram_links` and
-  `notification_deliveries` exist and are enforced by a
-  `UNIQUE(user_id, kind, scheduled_for)` constraint so duplicate sends are
-  structurally impossible, but the scheduled job still delivers to the owner
-  chat only. Enabling fan-out is a deliberate next step, not a default.
+- **Multi-user broadcast delivery IS enabled**, with opt-in required three times
+  over: a verified `telegram_links.chat_id`, `reminder_enabled = 1`, and an
+  active account. The owner's own delivery runs first and unchanged; fan-out to
+  other accounts happens after it, wrapped so a failure can never stop the
+  owner's lesson. The owner is excluded from fan-out by `user_id <> OWNER_ID`
+  so the two paths can never message the same chat twice.
+- Duplicate prevention is **structural, not procedural**:
+  `notification_deliveries` has `UNIQUE(user_id, kind, scheduled_for)` and the
+  fan-out uses `INSERT OR IGNORE`, checking `meta.changes`. A retried cron, a
+  double trigger or two concurrent runs all collapse to one row and one
+  message. Verified directly against D1: two identical inserts give
+  `changes: 0` on the second and exactly one row.
+- A failed send is recorded as `failed` and is **not** auto-retried in the same
+  window, because a retry would risk a duplicate if the message did go out.
+
+## Preferences isolation — corrected
+
+An earlier version of this document claimed the multi-user preferences leak was
+fixed. At that point it was **not**. Migration 0007 added a correctly scoped
+`user_settings` table and `/language` wrote to it, but `getPreference` and
+`setPreference` in `src/skills.js` still read and wrote the **global**
+`user_preferences` table. One learner toggling reminders still changed it for
+everybody while the schema looked fixed.
+
+That read and write path is now on `user_settings`, scoped by `user_id`. On a
+miss it falls back to the legacy global row so existing settings survive, then
+writes the value through to the scoped table so the global row stops being the
+source of truth. `GET/POST /api/skills/preferences` resolves the signed-in
+account, falling back to the owner only for the legacy single-user dashboard.
+
+The legacy `user_preferences` table still exists and is untouched. It is simply
+no longer read or written by the application.
+
+Regression test: `platform2027.test.mjs` registers two accounts, turns reminders
+on for one and off for the other, and asserts the first is unchanged.
+
+## Registration rate limits
+
+Registration is limited on two independent axes, because either alone is wrong
+for a public platform:
+
+| Limit | Value | Why |
+|---|---|---|
+| per email | 3 / hour | stops repeated attempts against one address |
+| per IP | 30 / hour | still stops bulk signup from one host |
+
+The original limit was 5 per IP per hour. On a public platform that locks out an
+entire office, campus or mobile carrier behind shared NAT, which is the normal
+case in Cambodia. Login remains limited per account, not per IP.
 
 ## Data integrity
 

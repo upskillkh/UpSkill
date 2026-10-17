@@ -40,8 +40,17 @@ export async function registerUser(env, body, meta = {}) {
   const pwError = validatePassword(body.password);
   if (pwError) throw httpError(400, pwError);
 
-  const limit = await rateLimit(env, clientKey(meta), "register", 5, 3600);
-  if (!limit.allowed) throw httpError(429, "Too many signup attempts. Try again later.");
+  // Two independent limits, because either one alone is wrong for a public
+  // platform. A tight per-IP limit locks out an entire office, campus or mobile
+  // carrier behind shared NAT, which is the normal case in Cambodia. A loose
+  // per-IP limit alone does nothing to stop hammering one specific account.
+  //   per email: stops repeated attempts against a single address
+  //   per IP:    still stops bulk signup from a single host, but generously
+  const perEmail = await rateLimit(env, "email:" + email, "register", 3, 3600);
+  if (!perEmail.allowed) throw httpError(429, "Too many signup attempts for this email. Try again later.");
+
+  const perIp = await rateLimit(env, clientKey(meta), "register", 30, 3600);
+  if (!perIp.allowed) throw httpError(429, "Too many signups from this network. Try again later.");
 
   const { results: existing } = await env.DB.prepare(`SELECT id FROM users WHERE email = ?`).bind(email).all();
   if (existing?.length) throw httpError(409, "An account with that email already exists.");

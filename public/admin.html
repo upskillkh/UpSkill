@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Up Skill — Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#101b2d">
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+:root{--ink:#101b2d;--line:#e3e8f0;--muted:#5d6b82;--bg:#f4f6fa;--accent:#2f6fed;--err:#b42318;--ok:#047857}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--ink);color:#fff;padding:14px 18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+header b{font-size:17px;letter-spacing:-.02em}
+header .sp{margin-inline-start:auto}
+.wrap{max-width:1080px;margin:0 auto;padding:18px}
+nav{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px}
+nav button{background:#fff;border:1px solid var(--line);border-radius:9px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
+nav button[aria-current="true"]{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.metric{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px}
+.metric b{display:block;font-size:23px;letter-spacing:-.02em}
+.metric span{color:var(--muted);font-size:12px}
+h1{font-size:22px;margin:0 0 4px} h2{font-size:17px;margin:20px 0 10px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+.status{padding:10px 12px;border-radius:9px;font-size:14px;margin:10px 0}
+.status.err{background:#fef2f2;color:var(--err);border:1px solid #fecaca}
+.status.ok{background:#ecfdf5;color:var(--ok);border:1px solid #a7f3d0}
+.gate{max-width:420px;margin:60px auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px}
+label{display:block;margin:10px 0 4px;font-size:13px;font-weight:600;color:var(--muted)}
+input,select{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 15px;font:inherit;font-weight:600;cursor:pointer}
+.btn.sec{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.mut{color:var(--muted);font-size:13px}
+.bar{height:8px;background:#eef2f8;border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <b>UP SKILL <span style="color:#7ee2c0">ADMIN</span></b>
+  <a href="/learn.html" style="color:#c3cede;font-size:13px">Platform</a>
+  <a href="/" style="color:#c3cede;font-size:13px">News</a>
+  <span class="sp"><button class="btn sec" id="out" style="display:none">Sign out</button></span>
+</header>
+<div class="wrap" id="app"></div>
+
+<script>
+const $=(id)=>document.getElementById(id);
+const esc=(s)=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+let TAB="overview";
+const TABS={overview:"Overview",curriculum:"Curriculum",skills:"Skills & Categories",users:"Users",telegram:"Telegram"};
+
+async function api(p,{method="GET",body}={}){
+  const r=await fetch(p,{method,credentials:"same-origin",headers:body?{"content-type":"application/json"}:{},body:body?JSON.stringify(body):undefined});
+  let d={}; try{d=await r.json()}catch{}
+  if(r.status===401||r.status===403) throw new Error("DENIED");
+  if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+  return d;
+}
+
+// The gate is cosmetic. Every admin action is re-checked on the server by role,
+// so hiding this page changes nothing about who can actually act.
+async function boot(){
+  let me=null;
+  try{ me=await api("/api/auth/me"); }catch{}
+  if(!(me&&me.authenticated&&me.user&&me.user.role==="admin")) return renderGate();
+  $("out").style.display="";
+  $("out").onclick=async()=>{ await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"}); location.reload(); };
+  render(); draw();
+}
+
+function renderGate(){
+  $("app").innerHTML=`<div class="gate">
+    <h1>Administrator sign-in</h1>
+    <p class="mut">Sign in with an account whose role is <code>admin</code>. Access is re-checked on the server for every action.</p>
+    <div id="msg"></div>
+    <label>Email</label><input type="email" id="em" autocomplete="username">
+    <label>Password</label><input type="password" id="pw" autocomplete="current-password">
+    <div style="margin-top:14px"><button class="btn" id="go">Sign in</button></div>
+    <p class="mut" style="margin-top:14px"><a href="/learn.html">Back to the platform</a></p>
+  </div>`;
+  $("go").onclick=async()=>{
+    try{
+      await api("/api/auth/login",{method:"POST",body:{email:$("em").value.trim(),password:$("pw").value}});
+      location.reload();
+    }catch(e){ $("msg").innerHTML=`<div class="status err">${esc(e.message==="DENIED"?"Sign-in failed.":e.message)}</div>`; }
+  };
+}
+
+function render(){
+  $("app").innerHTML=`<nav>${Object.entries(TABS).map(([k,v])=>`<button data-t="${k}" ${TAB===k?'aria-current="true"':''}>${v}</button>`).join("")}</nav><div id="view"></div>`;
+  $("app").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{TAB=b.dataset.t;render();draw();});
+}
+
+async function draw(){
+  const v=$("view"); v.innerHTML='<p class="card"><span class="spin"></span></p>';
+  try{
+    if(TAB==="overview") return await drawOverview();
+    if(TAB==="curriculum") return await drawCurriculum();
+    if(TAB==="skills") return await drawSkills();
+    if(TAB==="users") return await drawUsers();
+    if(TAB==="telegram") return await drawTelegram();
+  }catch(e){
+    v.innerHTML=e.message==="DENIED"
+      ? '<div class="status err">Administrator access required. This account is not an admin.</div>'
+      : `<div class="status err">${esc(e.message)}</div>`;
+  }
+}
+
+async function drawOverview(){
+  const o=await api("/api/platform/admin/overview");
+  const max=Math.max(1,...o.byCategory.map(c=>c.completed));
+  $("view").innerHTML=`
+    <h1>Overview</h1>
+    <div class="grid">
+      <div class="metric"><b>${o.users.total}</b><span>Active accounts</span></div>
+      <div class="metric"><b>${o.users.newLast7Days}</b><span>New in 7 days</span></div>
+      <div class="metric"><b>${o.learning.lessonsCompleted}</b><span>Lessons completed</span></div>
+      <div class="metric"><b>${o.learning.quizAttempts}</b><span>Quiz attempts</span></div>
+      <div class="metric"><b>${o.learning.quizCorrect}</b><span>Correct answers</span></div>
+      <div class="metric"><b>${o.telegram.sent||0}</b><span>Telegram sent</span></div>
+      <div class="metric"><b>${o.telegram.failed||0}</b><span>Telegram failed</span></div>
+      <div class="metric"><b>${o.news.stories}</b><span>News stories</span></div>
+    </div>
+    <h2>Completions by category</h2>
+    <div class="card">
+      ${o.byCategory.map(c=>`<div style="margin:9px 0">
+        <div style="display:flex;justify-content:space-between;font-size:13px"><span>${esc(c.name)}</span><b>${c.completed}</b></div>
+        <div class="bar" style="margin-top:4px"><i style="width:${Math.round((c.completed/max)*100)}%"></i></div>
+      </div>`).join("")}
+    </div>
+    <h2>Most studied skills</h2>
+    <div class="card">${o.topSkills.length
+      ? o.topSkills.map(s=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px"><span>${esc(s.name)}</span><b>${s.completed}</b></div>`).join("")
+      : '<p class="mut">No lessons completed yet.</p>'}</div>`;
+}
+
+async function drawCurriculum(){
+  const c=await api("/api/platform/admin/curriculum");
+  const untranslated=c.lessons.filter(l=>l.translations<2).length;
+  const unreviewed=c.lessons.filter(l=>l.translations>0&&l.reviewed<l.translations).length;
+  $("view").innerHTML=`
+    <h1>Curriculum</h1>
+    <p class="mut">${c.lessons.length} lessons · ${untranslated} missing a translation · ${unreviewed} awaiting human review</p>
+    ${unreviewed?`<div class="status err">${unreviewed} lesson(s) contain machine-translated text that has not been reviewed by a human. Treat Khmer copy as unreviewed until it is.</div>`:""}
+    <div class="card"><table>
+      <thead><tr><th>Day</th><th>Skill</th><th>Level</th><th>Status</th><th>Translations</th><th>Reviewed</th></tr></thead>
+      <tbody>${c.lessons.map(l=>`<tr>
+        <td>${l.day}</td><td>${esc(l.skill_key)}</td><td>${esc(l.difficulty)}</td><td>${esc(l.status||"draft")}</td>
+        <td>${l.translations}/2</td>
+        <td>${l.reviewed}/${l.translations}</td></tr>`).join("")}</tbody>
+    </table></div>`;
+}
+
+async function drawSkills(){
+  const cat=await api("/api/catalog");
+  $("view").innerHTML=`
+    <h1>Skills &amp; Categories</h1>
+    <p class="mut">Retire or re-level a skill without deleting it. Historical records stay readable. Nothing here is enforced in the browser — the server re-checks the admin role on every write.</p>
+    ${cat.categories.map(c=>`
+      <div class="card">
+        <h2 style="margin-top:0">${esc(c.name)} ${c.established?"":'<span class="mut">(emerging)</span>'}</h2>
+        ${c.skills.map(s=>`
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)">
+            <div style="flex:1;min-width:180px">
+              <b>${esc(s.name)}</b>
+              <div class="mut">${esc(s.key)} · ${s.level} · ${s.lessonCount} lesson(s)</div>
+            </div>
+            <select id="lvl-${s.key}" style="width:auto">
+              ${["L1","L2","L3","L4"].map(l=>`<option ${s.level===l?"selected":""}>${l}</option>`).join("")}
+            </select>
+            <select id="st-${s.key}" style="width:auto">
+              ${["active","planned","retired"].map(x=>`<option ${s.status===x?"selected":""}>${x}</option>`).join("")}
+            </select>
+            <button class="btn" data-save="${s.key}">Save</button>
+          </div>`).join("")}
+      </div>`).join("")}`;
+  $("view").querySelectorAll("[data-save]").forEach(b=>b.onclick=async()=>{
+    const k=b.dataset.save;
+    try{
+      await api("/api/platform/admin/skill",{method:"POST",body:{key:k,level:$("lvl-"+k).value,status:$("st-"+k).value}});
+      b.textContent="Saved ✓"; setTimeout(()=>b.textContent="Save",1600);
+    }catch(e){ b.textContent=e.message==="DENIED"?"Denied":("✗ "+e.message); }
+  });
+}
+
+async function drawUsers(){
+  const u=await api("/api/platform/admin/users");
+  $("view").innerHTML=`
+    <h1>Users</h1>
+    <p class="mut">${u.users.length} most recent. Password hashes and salts are never selected by this endpoint.</p>
+    <div class="card"><table>
+      <thead><tr><th>ID</th><th>Email</th><th>Role</th><th>Locale</th><th>Status</th><th>Lessons</th><th>Joined</th></tr></thead>
+      <tbody>${u.users.map(x=>`<tr>
+        <td>${x.id}</td><td>${esc(x.email)}</td>
+        <td>${x.role==="admin"?'<b>admin</b>':esc(x.role)}</td>
+        <td>${esc(x.locale)}</td><td>${esc(x.status)}</td>
+        <td>${x.completed||0}</td><td>${esc((x.created_at||"").slice(0,10))}</td>
+      </tr>`).join("")}</tbody>
+    </table></div>`;
+}
+
+async function drawTelegram(){
+  const d=await api("/api/platform/admin/deliveries");
+  $("view").innerHTML=`
+    <h1>Telegram delivery</h1>
+    <p class="mut">${d.deliveries.length} recent records. Duplicate sends are prevented by a unique constraint on (user, kind, scheduled time).</p>
+    <div class="card">${d.deliveries.length?`<table>
+      <thead><tr><th>When</th><th>User</th><th>Kind</th><th>Status</th><th>Attempts</th><th>Error</th></tr></thead>
+      <tbody>${d.deliveries.map(x=>`<tr>
+        <td>${esc((x.scheduled_for||"").slice(0,16).replace("T"," "))}</td>
+        <td>${esc(x.email||x.user_id)}</td><td>${esc(x.kind)}</td>
+        <td>${x.status==="sent"?"<b style='color:#047857'>sent</b>":x.status==="failed"?"<b style='color:#b42318'>failed</b>":esc(x.status)}</td>
+        <td>${x.attempts||0}</td><td class="mut">${esc((x.error||"").slice(0,80))}</td>
+      </tr>`).join("")}</tbody></table>`
+      : '<p class="mut">No learning notifications recorded yet. Scheduled lessons are still delivered to the owner chat only; multi-user fan-out is not enabled.</p>'}</div>`;
+}
+
+boot();
+</script>
+</body>
+</html>

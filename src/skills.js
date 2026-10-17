@@ -487,24 +487,57 @@ export async function listAssignments(env) {
   return results || [];
 }
 
-export async function getPreference(env, key, fallback = "") {
-  const { results } = await env.DB.prepare(`SELECT value FROM user_preferences WHERE key = ?`).bind(key).all();
-  return results?.[0]?.value ?? fallback;
+// ---------------------------------------------------------------------------
+// Preferences, scoped per account.
+//
+// The original `user_preferences` table is GLOBAL: key/value with no user_id.
+// That is a real multi-user leak — one learner toggling reminders changed it
+// for everybody. Migration 0007 added a correctly scoped `user_settings` table,
+// but the read and write path here still went to the global table, so the leak
+// was live even though the fix appeared to be in place.
+//
+// These functions now read and write user_settings. On a miss they fall back to
+// the legacy global row so existing settings survive the change, and the value
+// is written through to the scoped table on first use.
+//
+// userId defaults to OWNER_ID because every existing caller (the 30-day
+// dashboard, the Telegram lesson delivery, the cron job) is single-user and
+// belongs to the migrated owner account.
+// ---------------------------------------------------------------------------
+export async function getPreference(env, key, fallback = "", userId = OWNER_ID) {
+  const scoped = await env.DB
+    .prepare(`SELECT value FROM user_settings WHERE user_id = ? AND key = ?`)
+    .bind(userId, key).first();
+  if (scoped) return scoped.value;
+
+  // Continuity with the legacy global row, then write it through so the global
+  // value is no longer the source of truth for this account.
+  const legacy = await env.DB
+    .prepare(`SELECT value FROM user_preferences WHERE key = ?`).bind(key).first();
+  if (legacy) {
+    await putPreference(env, key, legacy.value, userId);
+    return legacy.value;
+  }
+  return fallback;
 }
 
-export async function setPreference(env, key, value) {
+async function putPreference(env, key, value, userId) {
   await env.DB
     .prepare(
-      `INSERT INTO user_preferences (key,value,updated_at) VALUES (?,?,?)
-       ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`
+      `INSERT INTO user_settings (user_id, key, value, updated_at) VALUES (?,?,?,?)
+       ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`
     )
-    .bind(key, String(value), new Date().toISOString())
+    .bind(userId, key, String(value), new Date().toISOString())
     .run();
+}
+
+export async function setPreference(env, key, value, userId = OWNER_ID) {
+  await putPreference(env, key, value, userId);
   return { ok: true };
 }
 
-export async function remindersEnabled(env) {
-  return (await getPreference(env, "reminders_enabled", "0")) === "1";
+export async function remindersEnabled(env, userId = OWNER_ID) {
+  return (await getPreference(env, "reminders_enabled", "0", userId)) === "1";
 }
 
 /**

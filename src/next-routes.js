@@ -39,7 +39,7 @@ function isAdmin(user, request, env) {
 // they render for anyone. Only the submission is user-scoped.
 const PUBLIC_ROUTES = ["/catalog", "/ai/status", "/lab/exercises", "/lab/exercise", "/assessment/questions"];
 const OWNED_ROUTES = [...PUBLIC_ROUTES, "/assessment", "/proficiency", "/analytics",
-  "/lab/submissions", "/lab/submit", "/coach", "/coach/history", "/export", "/account", "/admin"];
+  "/lab/submissions", "/lab/submit", "/coach", "/coach/history", "/settings", "/export", "/account", "/admin"];
 
 const owns = (r) => OWNED_ROUTES.some((p) => r === p || r.startsWith(p + "/"));
 
@@ -109,8 +109,9 @@ export async function handlePlatformNext(request, env, url, user) {
     const body = await readBody(request);
     const key = String(body.key || "").slice(0, 80);
     if (!key) return err(400, "key is required");
-    const saved = await saveSubmission(env, user.id, key, body.answer, body.selfScore);
-    return saved ? json({ ok: true, ...saved }) : err(404, "Exercise not found");
+    if (!String(body.answer || "").trim()) return err(400, "answer is required");
+    const saved = await saveSubmission(env, user.id, key, body.answer, body.selfScore, body.rubricScores);
+    return saved ? json({ ok: true, locale, ...saved }) : err(404, "Exercise not found");
   }
 
   if (route === "/coach" && method === "POST") {
@@ -126,6 +127,31 @@ export async function handlePlatformNext(request, env, url, user) {
   if (route === "/coach/history" && method === "DELETE") {
     await clearCoachHistory(env, user.id);
     return json({ ok: true });
+  }
+
+  // ---- account settings ---------------------------------------------------
+  // Locale lives on the account so the website and Telegram agree. Writing here
+  // also updates users.locale, which /api/auth/me returns, so a learner who
+  // switches language in Telegram sees it on the web on their next visit.
+  if (route === "/settings" && method === "POST") {
+    const body = await readBody(request);
+    const want = String(body.locale || "").toLowerCase();
+    if (!["km", "en"].includes(want)) return err(400, "locale must be km or en");
+    await env.DB.prepare("UPDATE users SET locale = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .bind(want, user.id).run();
+    await env.DB.prepare(`
+      INSERT INTO user_settings (user_id, key, value, updated_at) VALUES (?, 'locale', ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`)
+      .bind(user.id, want).run();
+    return json({ ok: true, locale: want });
+  }
+
+  if (route === "/settings" && method === "GET") {
+    const rows = await env.DB.prepare("SELECT key, value FROM user_settings WHERE user_id = ?")
+      .bind(user.id).all();
+    const out = {};
+    for (const r of rows.results || []) out[r.key] = r.value;
+    return json({ locale: user.locale, settings: out });
   }
 
   // ---- Telegram linking ---------------------------------------------------
@@ -189,8 +215,9 @@ export async function handlePlatformNext(request, env, url, user) {
     }
 
     if (route === "/admin/curriculum" && method === "GET") {
+      // `lessons` carries `difficulty`, not `level`. Level lives on `skills`.
       const lessons = await env.DB.prepare(`
-        SELECT l.id, l.slug, l.day, l.skill_key, l.level, l.status,
+        SELECT l.id, l.slug, l.day, l.skill_key, l.difficulty, l.status,
                (SELECT COUNT(*) FROM lesson_translations t WHERE t.lesson_id = l.id) AS translations,
                (SELECT COUNT(*) FROM lesson_translations t WHERE t.lesson_id = l.id AND t.review_status='human_reviewed') AS reviewed
           FROM lessons l ORDER BY l.day`).all();
